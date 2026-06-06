@@ -1,0 +1,31 @@
+name: "clip_encode"
+backend: "python"
+max_batch_size: 1
+
+input [
+  {
+    name: "input_data"
+    data_type: TYPE_BYTES
+    dims: [ 1 ]
+  },
+  {
+    name: "input_mode"
+    data_type: TYPE_BYTES
+    dims: [ 1 ]
+  }
+]
+
+output [
+  {
+    name: "embedding"
+    data_type: TYPE_FP32
+    dims: [ 512 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]

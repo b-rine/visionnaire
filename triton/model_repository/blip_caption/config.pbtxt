@@ -1,0 +1,26 @@
+name: "blip_caption"
+backend: "python"
+max_batch_size: 1
+
+input [
+  {
+    name: "image_bytes"
+    data_type: TYPE_BYTES
+    dims: [ 1 ]
+  }
+]
+
+output [
+  {
+    name: "caption"
+    data_type: TYPE_BYTES
+    dims: [ 1 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]
