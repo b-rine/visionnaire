@@ -10,7 +10,7 @@ An ML-powered photo app for image captioning and semantic search. Built with Tri
 ## Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Inference | Triton Inference Server (BLIP caption, CLIP encode) |
 | Vector store | Qdrant |
 | Backend | FastAPI |
@@ -25,10 +25,10 @@ docker compose up --build
 ```
 
 | Service | URL |
-|---|---|
-| Frontend | http://localhost:3000 |
-| Backend API docs | http://localhost:8080/docs |
-| Qdrant dashboard | http://localhost:6333/dashboard |
+| --- | --- |
+| Frontend | <http://localhost:3000> |
+| Backend API docs | <http://localhost:8080/docs> |
+| Qdrant dashboard | <http://localhost:6333/dashboard> |
 
 ## Testing
 
