@@ -10,7 +10,7 @@ VECTOR_SIZE = 512
 
 
 def _client() -> QdrantClient:
-    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=15)
 
 
 async def init_collection() -> None:
