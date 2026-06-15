@@ -5,12 +5,12 @@ max_batch_size: 1
 input [
   {
     name: "input_data"
-    data_type: TYPE_BYTES
+    data_type: TYPE_STRING
     dims: [ 1 ]
   },
   {
     name: "input_mode"
-    data_type: TYPE_BYTES
+    data_type: TYPE_STRING
     dims: [ 1 ]
   }
 ]
