@@ -5,4 +5,4 @@ RUN pip install --no-cache-dir \
     Pillow==10.1.0 \
     torch==2.1.0+cu118 \
     torchvision==0.16.0+cu118 \
-    --index-url https://download.pytorch.org/whl/cu118
+    --extra-index-url https://download.pytorch.org/whl/cu118
