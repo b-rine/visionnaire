@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 from datetime import datetime, timezone
@@ -18,16 +19,25 @@ class SearchRequest(BaseModel):
     query: str
 
 
+def _photo_id(image_bytes: bytes) -> str:
+    digest = hashlib.sha256(image_bytes).hexdigest()
+    return str(uuid.UUID(digest[:32]))
+
+
 @router.post("/photos/upload")
 async def upload_photo(file: UploadFile = File(...)):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    photo_id = str(uuid.uuid4())
+    image_bytes = await file.read()
+    photo_id = _photo_id(image_bytes)
+
+    matches = list(PHOTOS_DIR.glob(f"{photo_id}_*"))
+    if matches:
+        return {"id": photo_id, "filename": matches[0].name.split("_", 1)[1]}
+
     filename = f"{photo_id}_{file.filename}"
     file_path = PHOTOS_DIR / filename
-
-    image_bytes = await file.read()
     file_path.write_bytes(image_bytes)
 
     embedding = await encode_image(image_bytes)
@@ -46,11 +56,14 @@ async def upload_photo(file: UploadFile = File(...)):
 async def search_photos_endpoint(body: SearchRequest):
     embedding = await encode_text(body.query)
     results = await search_photos(embedding, top_k=10)
+    if not results:
+        return []
+    max_score = results[0].score
     return [
         {
             "id": str(hit.id),
             "filename": hit.payload["filename"],
-            "score": hit.score,
+            "score": hit.score / max_score,
         }
         for hit in results
     ]

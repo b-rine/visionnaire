@@ -53,7 +53,32 @@ def test_search_returns_results(client):
     assert len(results) == 1
     assert results[0]["id"] == "photo-abc"
     assert results[0]["filename"] == "mountain.jpg"
-    assert results[0]["score"] == pytest.approx(0.92)
+    assert results[0]["score"] == pytest.approx(1.0)
+
+
+def test_search_normalizes_scores_relative_to_top(client):
+    def make_hit(id, score):
+        h = MagicMock()
+        h.id = id
+        h.payload = {"filename": f"{id}.jpg"}
+        h.score = score
+        return h
+
+    hits = [make_hit("a", 0.40), make_hit("b", 0.20)]
+    with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=hits):
+        response = client.post("/api/photos/search", json={"query": "something"})
+
+    results = response.json()
+    assert results[0]["score"] == pytest.approx(1.0)
+    assert results[1]["score"] == pytest.approx(0.5)
+
+
+def test_upload_deduplicates_identical_images(client, photos_dir):
+    jpeg = _jpeg_bytes()
+    r1 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+    r2 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+    assert r1.json()["id"] == r2.json()["id"]
+    assert len(list(photos_dir.glob("*.jpg"))) == 1
 
 
 def test_search_returns_empty_list(client):
