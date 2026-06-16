@@ -6,7 +6,7 @@ from qdrant_client.models import Distance, PointStruct, ScoredPoint, VectorParam
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION = "photos"
-VECTOR_SIZE = 512
+VECTOR_SIZE = 768
 
 
 def _client() -> QdrantClient:
@@ -15,12 +15,19 @@ def _client() -> QdrantClient:
 
 async def init_collection() -> None:
     client = _client()
-    existing = [c.name for c in client.get_collections().collections]
-    if COLLECTION not in existing:
-        client.create_collection(
-            collection_name=COLLECTION,
-            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
-        )
+    existing = {c.name for c in client.get_collections().collections}
+    if COLLECTION in existing:
+        info = client.get_collection(COLLECTION)
+        vectors = info.config.params.vectors
+        current_size = vectors.size if isinstance(vectors, VectorParams) else None
+        if current_size == VECTOR_SIZE:
+            return
+        # Dimension changed (e.g. switched models) — recreate
+        client.delete_collection(COLLECTION)
+    client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+    )
 
 
 async def upsert_photo(
