@@ -8,5 +8,6 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir \
     open_clip_torch==2.24.0 \
+    transformers \
     Pillow==10.1.0 \
     ftfy
