@@ -4,19 +4,25 @@ import { useState } from "react";
 export default function Caption() {
   const [preview, setPreview] = useState<string | null>(null);
   const [caption, setCaption] = useState<string | null>(null);
+  const [indexMsg, setIndexMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File) {
     setPreview(URL.createObjectURL(file));
     setCaption(null);
+    setIndexMsg(null);
     setError(null);
     setLoading(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const { data } = await axios.post<{ caption: string }>("/api/caption", fd);
-      setCaption(data.caption);
+      const [captionRes, indexRes] = await Promise.all([
+        axios.post<{ caption: string }>("/api/caption", fd),
+        axios.post<{ id: string; filename: string }>("/api/photos/upload", fd),
+      ]);
+      setCaption(captionRes.data.caption);
+      setIndexMsg(`Indexed: ${indexRes.data.filename}`);
     } catch {
       setError("Failed to generate caption. Is the backend running?");
     } finally {
@@ -50,12 +56,13 @@ export default function Caption() {
       {preview && (
         <img src={preview} alt="preview" className="preview-image" />
       )}
-      {loading && <p className="loading">Generating caption...</p>}
+      {loading && <p className="loading">Generating caption & indexing...</p>}
       {caption && (
         <div className="caption-result">
           <strong>Caption:</strong> {caption}
         </div>
       )}
+      {indexMsg && <div className="status-msg">{indexMsg}</div>}
       {error && <p style={{ color: "red" }}>{error}</p>}
     </>
   );
