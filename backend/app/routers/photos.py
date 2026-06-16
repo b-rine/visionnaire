@@ -52,20 +52,21 @@ async def upload_photo(file: UploadFile = File(...)):
     return {"id": photo_id, "filename": file.filename}
 
 
+MIN_SCORE = 0.20
+
+
 @router.post("/photos/search")
 async def search_photos_endpoint(body: SearchRequest):
     embedding = await encode_text(body.query)
     results = await search_photos(embedding, top_k=10)
-    if not results:
-        return []
-    max_score = results[0].score
     return [
         {
             "id": str(hit.id),
             "filename": hit.payload["filename"],
-            "score": hit.score / max_score,
+            "score": hit.score,
         }
         for hit in results
+        if hit.score >= MIN_SCORE
     ]
 
 

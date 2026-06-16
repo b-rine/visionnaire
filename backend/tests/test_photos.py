@@ -53,10 +53,10 @@ def test_search_returns_results(client):
     assert len(results) == 1
     assert results[0]["id"] == "photo-abc"
     assert results[0]["filename"] == "mountain.jpg"
-    assert results[0]["score"] == pytest.approx(1.0)
+    assert results[0]["score"] == pytest.approx(0.92)
 
 
-def test_search_normalizes_scores_relative_to_top(client):
+def test_search_filters_low_score_results(client):
     def make_hit(id, score):
         h = MagicMock()
         h.id = id
@@ -64,13 +64,13 @@ def test_search_normalizes_scores_relative_to_top(client):
         h.score = score
         return h
 
-    hits = [make_hit("a", 0.40), make_hit("b", 0.20)]
+    hits = [make_hit("a", 0.25), make_hit("b", 0.19)]
     with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=hits):
         response = client.post("/api/photos/search", json={"query": "something"})
 
     results = response.json()
-    assert results[0]["score"] == pytest.approx(1.0)
-    assert results[1]["score"] == pytest.approx(0.5)
+    assert len(results) == 1
+    assert results[0]["id"] == "a"
 
 
 def test_upload_deduplicates_identical_images(client, photos_dir):
