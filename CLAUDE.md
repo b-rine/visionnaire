@@ -15,6 +15,8 @@ Everything runs via Docker Compose. GPU (NVIDIA) is required for Triton.
 
 ## Running
 
+### Production (full Docker)
+
 ```bash
 docker compose up --build
 ```
@@ -22,6 +24,22 @@ docker compose up --build
 - Frontend: http://localhost:3000
 - Backend API docs: http://localhost:8080/docs
 - Qdrant dashboard: http://localhost:6333/dashboard
+
+### Development (hot reload — no rebuild needed)
+
+Run Triton, Qdrant, and backend in Docker with live code reload:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up triton qdrant backend
+```
+
+Then in a separate terminal, run the frontend with Vite's dev server (HMR):
+
+```bash
+cd frontend && npm run dev
+```
+
+Frontend available at http://localhost:5173. API calls are proxied to `localhost:8080` automatically (see `vite.config.ts`). Backend Python changes trigger an automatic uvicorn reload via the mounted volume.
 
 ## Key design decisions
 
