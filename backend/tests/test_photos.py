@@ -30,13 +30,37 @@ def test_upload_rejects_non_image(client):
     assert response.status_code == 400
 
 
-def test_upload_writes_file_to_disk(client, photos_dir):
-    client.post(
-        "/api/photos/upload",
-        files={"file": ("mountain.jpg", _jpeg_bytes(), "image/jpeg")},
-    )
-    saved = list(photos_dir.glob("*_mountain.jpg"))
-    assert len(saved) == 1
+def test_upload_calls_r2(client):
+    with patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock) as mock_r2:
+        client.post(
+            "/api/photos/upload",
+            files={"file": ("photo.jpg", _jpeg_bytes(), "image/jpeg")},
+        )
+    mock_r2.assert_called_once()
+    assert mock_r2.call_args[0][0]  # photo_id was passed
+
+
+def test_upload_deduplicates_via_r2_head(client):
+    jpeg = _jpeg_bytes()
+    with (
+        patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True),
+        patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock) as mock_r2,
+    ):
+        r1 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+        r2 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+    assert r1.json()["id"] == r2.json()["id"]
+    mock_r2.assert_not_called()
+
+
+def test_upload_rejects_over_storage_limit(client):
+    one_gib = 1 * 1024 ** 3
+    with patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=one_gib):
+        response = client.post(
+            "/api/photos/upload",
+            files={"file": ("big.jpg", _jpeg_bytes(), "image/jpeg")},
+        )
+    assert response.status_code == 400
+    assert "Storage limit" in response.json()["detail"]
 
 
 def test_search_returns_results(client):
@@ -73,18 +97,17 @@ def test_search_filters_low_score_results(client):
     assert results[0]["id"] == "a"
 
 
-def test_upload_deduplicates_identical_images(client, photos_dir):
-    jpeg = _jpeg_bytes()
-    r1 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
-    r2 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
-    assert r1.json()["id"] == r2.json()["id"]
-    assert len(list(photos_dir.glob("*.jpg"))) == 1
-
-
 def test_search_returns_empty_list(client):
     response = client.post("/api/photos/search", json={"query": "nothing here"})
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_get_photo_redirects(client):
+    with patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True):
+        response = client.get("/api/photos/some-id", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "https://r2.example.com/photo"
 
 
 def test_get_photo_not_found(client):
@@ -92,8 +115,13 @@ def test_get_photo_not_found(client):
     assert response.status_code == 404
 
 
-def test_get_photo_found(client, photos_dir):
-    photo_id = "test-photo-id"
-    (photos_dir / f"{photo_id}_sunset.jpg").write_bytes(_jpeg_bytes())
-    response = client.get(f"/api/photos/{photo_id}")
+def test_delete_photo_success(client):
+    with patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True):
+        response = client.delete("/api/photos/some-id")
     assert response.status_code == 200
+    assert response.json() == {"deleted": "some-id"}
+
+
+def test_delete_photo_not_found(client):
+    response = client.delete("/api/photos/does-not-exist")
+    assert response.status_code == 404

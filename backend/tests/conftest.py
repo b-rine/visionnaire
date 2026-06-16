@@ -1,23 +1,24 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from starlette.testclient import TestClient
 
 
 @pytest.fixture
-def photos_dir(tmp_path):
-    return tmp_path
-
-
-@pytest.fixture
-def client(photos_dir):
+def client():
     with (
         patch("app.main.init_collection", new_callable=AsyncMock),
         patch("app.routers.caption.caption_image", new_callable=AsyncMock, return_value="a cat on a mat"),
-        patch("app.routers.photos.encode_image", new_callable=AsyncMock, return_value=[0.0] * 512),
-        patch("app.routers.photos.encode_text", new_callable=AsyncMock, return_value=[0.0] * 512),
+        patch("app.routers.photos.encode_image", new_callable=AsyncMock, return_value=[0.0] * 768),
+        patch("app.routers.photos.encode_text", new_callable=AsyncMock, return_value=[0.0] * 768),
         patch("app.routers.photos.upsert_photo", new_callable=AsyncMock),
         patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[]),
-        patch("app.routers.photos.PHOTOS_DIR", photos_dir),
+        patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=False),
+        patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock),
+        patch("app.routers.photos.get_r2_presigned_url", new_callable=AsyncMock, return_value="https://r2.example.com/photo"),
+        patch("app.routers.photos.delete_photo_from_r2", new_callable=AsyncMock),
+        patch("app.routers.photos.delete_photo", new_callable=AsyncMock),
+        patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=0),
     ):
         from app.main import app
         with TestClient(app) as c:
