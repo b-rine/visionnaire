@@ -4,6 +4,7 @@ import { useState } from "react";
 interface SearchResult {
   id: string;
   filename: string;
+  score: number;
 }
 
 export default function Search() {
@@ -60,6 +61,9 @@ export default function Search() {
                   alt={r.filename}
                   onError={() => handleImageError(r.id)}
                 />
+                <span className="score-badge" title="Similarity score">
+                  {(r.score * 100).toFixed(0)}%
+                </span>
               </div>
             ))}
           </div>
