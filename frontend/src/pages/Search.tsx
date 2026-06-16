@@ -4,14 +4,18 @@ import { useState } from "react";
 interface SearchResult {
   id: string;
   filename: string;
-  score: number;
 }
 
 export default function Search() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleImageError(id: string) {
+    setFailedIds((prev) => new Set([...prev, id]));
+  }
 
   async function handleSearch() {
     if (!query.trim()) return;
@@ -49,12 +53,13 @@ export default function Search() {
 
         {results.length > 0 && (
           <div className="photo-grid">
-            {results.map((r) => (
+            {results.filter((r) => !failedIds.has(r.id)).map((r) => (
               <div key={r.id} className="photo-tile">
-                <img src={`/api/photos/${r.id}`} alt={r.filename} />
-                <span className="score-badge">
-                  {(r.score * 100).toFixed(0)}%
-                </span>
+                <img
+                  src={`/api/photos/${r.id}`}
+                  alt={r.filename}
+                  onError={() => handleImageError(r.id)}
+                />
               </div>
             ))}
           </div>
