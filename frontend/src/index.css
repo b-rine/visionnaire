@@ -110,6 +110,25 @@ h1 { margin-top: 0; }
   display: block;
 }
 
+.delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.60);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.photo-tile:hover .delete-btn { opacity: 1; }
+
+.delete-btn:hover { background: rgba(200, 50, 50, 0.85); }
+
 .score-badge {
   position: absolute;
   bottom: 4px;

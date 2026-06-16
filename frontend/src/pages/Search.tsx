@@ -11,27 +11,45 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function handleImageError(id: string) {
-    setFailedIds((prev) => new Set([...prev, id]));
-  }
 
   async function handleSearch() {
     if (!query.trim()) return;
     setError(null);
     setSearching(true);
     try {
-      const { data } = await axios.post<SearchResult[]>("/api/photos/search", {
-        query,
-      });
+      const { data } = await axios.post<SearchResult[]>("/api/photos/search", { query });
       setResults(data);
     } catch {
       setError("Search failed.");
     } finally {
       setSearching(false);
     }
+  }
+
+  async function handleDelete(id: string) {
+    if (pendingDelete !== id) {
+      setPendingDelete(id);
+      setTimeout(() => setPendingDelete((prev) => (prev === id ? null : prev)), 3000);
+      return;
+    }
+    setPendingDelete(null);
+    setDeletingId(id);
+    try {
+      await axios.delete(`/api/photos/${id}`);
+      setResults((prev) => prev.filter((r) => r.id !== id));
+    } catch {
+      setError("Delete failed.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function handleImageError(id: string) {
+    setFailedIds((prev) => new Set([...prev, id]));
   }
 
   return (
@@ -64,6 +82,14 @@ export default function Search() {
                 <span className="score-badge" title="Similarity score">
                   {(r.score * 100).toFixed(0)}%
                 </span>
+                <button
+                  className="delete-btn"
+                  onClick={() => handleDelete(r.id)}
+                  disabled={deletingId === r.id}
+                  title="Delete photo"
+                >
+                  {deletingId === r.id ? "..." : pendingDelete === r.id ? "Confirm?" : "✕"}
+                </button>
               </div>
             ))}
           </div>

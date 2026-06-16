@@ -4,55 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import Search from "./Search";
 
 const mockPost = vi.hoisted(() => vi.fn());
-vi.mock("axios", () => ({ default: { post: mockPost } }));
+const mockDelete = vi.hoisted(() => vi.fn());
+vi.mock("axios", () => ({ default: { post: mockPost, delete: mockDelete } }));
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("Search page", () => {
-  it("renders the upload dropzone and search bar", () => {
+  it("renders the search bar", () => {
     render(<Search />);
-    expect(
-      screen.getByText(/drag & drop a photo to index/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText(/sunset over mountains/i)
-    ).toBeInTheDocument();
-  });
-
-  it("shows indexed message after successful upload", async () => {
-    mockPost.mockResolvedValue({ data: { id: "abc123", filename: "beach.jpg" } });
-    render(<Search />);
-
-    const input = document.querySelector(
-      "input[type=file]"
-    ) as HTMLInputElement;
-    await userEvent.upload(
-      input,
-      new File(["img"], "beach.jpg", { type: "image/jpeg" })
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/indexed: beach\.jpg/i)).toBeInTheDocument();
-    });
-  });
-
-  it("shows error when upload fails", async () => {
-    mockPost.mockRejectedValue(new Error("Network error"));
-    render(<Search />);
-
-    const input = document.querySelector(
-      "input[type=file]"
-    ) as HTMLInputElement;
-    await userEvent.upload(
-      input,
-      new File(["img"], "beach.jpg", { type: "image/jpeg" })
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/upload failed/i)).toBeInTheDocument();
-    });
+    expect(screen.getByPlaceholderText(/sunset over mountains/i)).toBeInTheDocument();
   });
 
   it("renders results after a successful search", async () => {
@@ -101,9 +63,41 @@ describe("Search page", () => {
     );
 
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith("/api/photos/search", {
-        query: "mountains",
-      });
+      expect(mockPost).toHaveBeenCalledWith("/api/photos/search", { query: "mountains" });
     });
+  });
+
+  it("shows Confirm? button after first delete click", async () => {
+    mockPost.mockResolvedValue({
+      data: [{ id: "photo-1", filename: "sunset.jpg", score: 0.95 }],
+    });
+    render(<Search />);
+
+    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+
+    await userEvent.click(screen.getByTitle("Delete photo"));
+    expect(screen.getByText("Confirm?")).toBeInTheDocument();
+  });
+
+  it("removes photo from results after confirmed delete", async () => {
+    mockPost.mockResolvedValue({
+      data: [{ id: "photo-1", filename: "sunset.jpg", score: 0.95 }],
+    });
+    mockDelete.mockResolvedValue({});
+    render(<Search />);
+
+    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+
+    await userEvent.click(screen.getByTitle("Delete photo"));
+    await userEvent.click(screen.getByText("Confirm?"));
+
+    await waitFor(() => {
+      expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
+    });
+    expect(mockDelete).toHaveBeenCalledWith("/api/photos/photo-1");
   });
 });
