@@ -96,3 +96,18 @@ Model downloads from HuggingFace on first run (~1.5 GB, cached in `hf_cache` Doc
 - Need a full `docker compose up --build` after the CoCa + R2 changes before testing end-to-end
 - Existing photos in `./photos` are not in R2 — start fresh (re-upload anything needed)
 - Qdrant collection auto-recreates if VECTOR_SIZE changed (512→768 already handled)
+- Stale `blip_caption/` and `clip_encode/` dirs in `triton/model_repository/` have root-owned `__pycache__` files that need `sudo rm -rf` to fully remove; workaround is `--model-control-mode=explicit --load-model=coca` in the Triton command
+
+## TODO
+
+### UX gaps
+- **Gallery/browse page** — no way to see all indexed photos without searching; add a third tab that paginates through all Qdrant points
+- **Storage usage indicator** — show "X MB of 1 GB used" on the Caption page so the cap doesn't come as a surprise
+
+### ML improvements
+- **Store captions in Qdrant payload** — captions are generated but discarded; storing them enables showing captions under search results and keyword-based fallback search
+- **Fine-tune CoCa** — once enough photos are indexed, use the image-caption pairs to fine-tune the model for better domain-specific consistency
+
+### Production readiness
+- **Authentication** — any user with the URL can upload/delete; add at minimum an API key check on write endpoints
+- **Deploy** — backend + frontend + Qdrant can run on a small VPS; Triton stays local or moves to a rented GPU instance
