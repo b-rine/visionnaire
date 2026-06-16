@@ -1,6 +1,7 @@
 import os
 
 from qdrant_client import QdrantClient
+from qdrant_client.http import models as qmodels
 from qdrant_client.models import Distance, PointStruct, ScoredPoint, VectorParams
 
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
@@ -33,9 +34,9 @@ async def init_collection() -> None:
 async def upsert_photo(
     photo_id: str,
     embedding: list[float],
-    file_path: str,
     filename: str,
     uploaded_at: str,
+    file_size: int,
 ) -> None:
     client = _client()
     client.upsert(
@@ -45,13 +46,39 @@ async def upsert_photo(
                 id=photo_id,
                 vector=embedding,
                 payload={
-                    "file_path": file_path,
                     "filename": filename,
                     "uploaded_at": uploaded_at,
+                    "file_size": file_size,
                 },
             )
         ],
     )
+
+
+async def delete_photo(photo_id: str) -> None:
+    client = _client()
+    client.delete(
+        collection_name=COLLECTION,
+        points_selector=qmodels.PointIdsList(points=[photo_id]),
+    )
+
+
+async def get_total_storage_bytes() -> int:
+    client = _client()
+    total, offset = 0, None
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=COLLECTION,
+            offset=offset,
+            limit=256,
+            with_payload=["file_size"],
+            with_vectors=False,
+        )
+        total += sum(r.payload.get("file_size", 0) for r in records)
+        if next_offset is None:
+            break
+        offset = next_offset
+    return total
 
 
 async def search_photos(
