@@ -1,10 +1,19 @@
 import os
+import re
 
 import numpy as np
 import tritonclient.http as httpclient
 
 TRITON_HOST = os.getenv("TRITON_HOST", "localhost")
 TRITON_PORT = int(os.getenv("TRITON_PORT", "8000"))
+
+_CAPTION_TOKEN_RE = re.compile(r"<start_of_text>|<end_of_text>")
+_SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,!?;:])")
+
+
+def _clean_caption(raw: str) -> str:
+    text = _CAPTION_TOKEN_RE.sub("", raw).strip()
+    return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", text)
 
 
 def _client() -> httpclient.InferenceServerClient:
@@ -39,7 +48,7 @@ async def _coca_infer(data: bytes, mode: str) -> tuple[np.ndarray, str]:
 
 async def caption_image(image_bytes: bytes) -> str:
     _, caption = await _coca_infer(image_bytes, mode="caption")
-    return caption
+    return _clean_caption(caption)
 
 
 async def encode_image(image_bytes: bytes) -> list[float]:
