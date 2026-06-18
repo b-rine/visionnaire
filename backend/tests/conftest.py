@@ -19,6 +19,7 @@ def client():
         patch("app.routers.photos.delete_photo_from_r2", new_callable=AsyncMock),
         patch("app.routers.photos.delete_photo", new_callable=AsyncMock),
         patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=0),
+        patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=([], None)),
     ):
         from app.main import app
         with TestClient(app) as c:

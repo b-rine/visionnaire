@@ -81,6 +81,30 @@ async def get_total_storage_bytes() -> int:
     return total
 
 
+async def list_photos(
+    limit: int = 50,
+    offset: str | None = None,
+) -> tuple[list[dict], str | None]:
+    client = _client()
+    records, next_offset = client.scroll(
+        collection_name=COLLECTION,
+        offset=offset,
+        limit=limit,
+        with_payload=True,
+        with_vectors=False,
+    )
+    photos = [
+        {
+            "id": str(r.id),
+            "filename": r.payload.get("filename", ""),
+            "uploaded_at": r.payload.get("uploaded_at", ""),
+            "file_size": r.payload.get("file_size", 0),
+        }
+        for r in records
+    ]
+    return photos, str(next_offset) if next_offset is not None else None
+
+
 async def search_photos(
     query_embedding: list[float],
     top_k: int = 10,

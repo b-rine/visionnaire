@@ -16,6 +16,7 @@ from app.services.triton_client import encode_image, encode_text
 from app.services.vector_store import (
     delete_photo,
     get_total_storage_bytes,
+    list_photos,
     search_photos,
     upsert_photo,
 )
@@ -77,6 +78,18 @@ async def search_photos_endpoint(body: SearchRequest):
         for hit in results
         if hit.score >= MIN_SCORE
     ]
+
+
+@router.get("/photos")
+async def list_photos_endpoint(limit: int = 50, offset: str | None = None):
+    photos, next_offset = await list_photos(limit=limit, offset=offset)
+    return {"photos": photos, "next_offset": next_offset}
+
+
+@router.get("/storage")
+async def storage_stats():
+    used = await get_total_storage_bytes()
+    return {"used_bytes": used, "limit_bytes": STORAGE_LIMIT_BYTES}
 
 
 @router.get("/photos/{photo_id}")

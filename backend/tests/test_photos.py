@@ -103,6 +103,33 @@ def test_search_returns_empty_list(client):
     assert response.json() == []
 
 
+def test_list_photos_returns_page(client):
+    photos = [
+        {"id": "a", "filename": "a.jpg", "uploaded_at": "2026-01-01T00:00:00Z", "file_size": 100},
+        {"id": "b", "filename": "b.jpg", "uploaded_at": "2026-01-02T00:00:00Z", "file_size": 200},
+    ]
+    with patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=(photos, "b")):
+        response = client.get("/api/photos")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["photos"] == photos
+    assert body["next_offset"] == "b"
+
+
+def test_list_photos_passes_pagination_params(client):
+    with patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=([], None)) as mock_list:
+        client.get("/api/photos?limit=10&offset=xyz")
+    mock_list.assert_called_once_with(limit=10, offset="xyz")
+
+
+def test_storage_stats(client):
+    one_gib = 1 * 1024 ** 3
+    with patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=12345):
+        response = client.get("/api/storage")
+    assert response.status_code == 200
+    assert response.json() == {"used_bytes": 12345, "limit_bytes": one_gib}
+
+
 def test_get_photo_redirects(client):
     with patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True):
         response = client.get("/api/photos/some-id", follow_redirects=False)
