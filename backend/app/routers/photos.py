@@ -23,6 +23,7 @@ from app.services.vector_store import (
 
 STORAGE_LIMIT_BYTES = 1 * 1024**3  # 1 GiB
 MIN_SCORE = 0.20
+SCORE_CEILING = 0.35  # raw cosine representing a confident match for this CoCa checkpoint
 
 router = APIRouter()
 
@@ -34,6 +35,11 @@ class SearchRequest(BaseModel):
 def _photo_id(image_bytes: bytes) -> str:
     digest = hashlib.sha256(image_bytes).hexdigest()
     return str(uuid.UUID(digest[:32]))
+
+
+def _display_score(raw_score: float) -> float:
+    scaled = (raw_score - MIN_SCORE) / (SCORE_CEILING - MIN_SCORE)
+    return max(0.0, min(1.0, scaled))
 
 
 @router.post("/photos/upload")
@@ -73,7 +79,7 @@ async def search_photos_endpoint(body: SearchRequest):
         {
             "id": str(hit.id),
             "filename": hit.payload["filename"],
-            "score": hit.score,
+            "score": _display_score(hit.score),
         }
         for hit in results
         if hit.score >= MIN_SCORE

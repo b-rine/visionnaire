@@ -79,7 +79,7 @@ export default function Search() {
                   alt={r.filename}
                   onError={() => handleImageError(r.id)}
                 />
-                <span className="score-badge" title="Similarity score">
+                <span className="score-badge" title="Match strength">
                   {(r.score * 100).toFixed(0)}%
                 </span>
                 <button

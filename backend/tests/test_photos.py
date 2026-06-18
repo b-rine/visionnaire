@@ -4,11 +4,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from PIL import Image
 
+from app.routers.photos import _display_score
+
 
 def _jpeg_bytes() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (4, 4), color=(0, 128, 255)).save(buf, format="JPEG")
     return buf.getvalue()
+
+
+@pytest.mark.parametrize(
+    "raw_score,expected",
+    [
+        (0.20, 0.0),   # floor (MIN_SCORE)
+        (0.35, 1.0),   # ceiling (SCORE_CEILING)
+        (0.50, 1.0),   # above ceiling, clamped
+        (0.275, 0.5),  # midpoint
+    ],
+)
+def test_display_score(raw_score, expected):
+    assert _display_score(raw_score) == pytest.approx(expected)
 
 
 def test_upload_returns_id_and_filename(client):
@@ -67,7 +82,7 @@ def test_search_returns_results(client):
     hit = MagicMock()
     hit.id = "photo-abc"
     hit.payload = {"filename": "mountain.jpg"}
-    hit.score = 0.92
+    hit.score = 0.275  # midpoint of MIN_SCORE..SCORE_CEILING -> 0.5 display score
 
     with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[hit]):
         response = client.post("/api/photos/search", json={"query": "a mountain lake"})
@@ -77,7 +92,7 @@ def test_search_returns_results(client):
     assert len(results) == 1
     assert results[0]["id"] == "photo-abc"
     assert results[0]["filename"] == "mountain.jpg"
-    assert results[0]["score"] == pytest.approx(0.92)
+    assert results[0]["score"] == pytest.approx(0.5)
 
 
 def test_search_filters_low_score_results(client):
@@ -95,6 +110,7 @@ def test_search_filters_low_score_results(client):
     results = response.json()
     assert len(results) == 1
     assert results[0]["id"] == "a"
+    assert results[0]["score"] == pytest.approx(1 / 3)
 
 
 def test_search_returns_empty_list(client):
