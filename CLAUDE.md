@@ -43,7 +43,7 @@ Required R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `
 
 ## Key design decisions
 
-- **Single model for caption + search**: CoCa ViT-L-14 (`laion2b_s13b_b90k`) replaces BLIP+CLIP. One Triton model handles captioning, image embedding, and text embedding in the same vector space — so searching with a generated caption gives consistent similarity scores.
+- **Single model for caption + search**: CoCa ViT-L-14 (`mscoco_finetuned_laion2B-s13B-b90k`) replaces BLIP+CLIP. One Triton model handles captioning, image embedding, and text embedding in the same vector space — so searching with a generated caption gives consistent similarity scores. Originally used the base `laion2b_s13b_b90k` checkpoint, but that's trained only on raw LAION-2B web alt-text and produced tabloid-style hallucinated captions (e.g. inventing celebrity names/relationships) since that corpus is full of clickbait-style alt-text templates. Switched to the MS-COCO-finetuned checkpoint, which is what open_clip's own docs use for captioning — same architecture, fine-tuned on clean literal captions, still trains the contrastive objective alongside captioning so embedding/retrieval quality should hold.
 - **Captioning also indexes**: Caption tab calls `/api/caption` and `/api/photos/upload` in parallel. Search tab is search-only.
 - **Content-addressed photo IDs**: SHA-256 hash of image bytes → deterministic UUID. Same image uploaded twice returns the same ID without re-uploading (dedup via R2 `head_object`).
 - **Photos stored in R2**: No local disk storage. `GET /api/photos/{id}` returns a 302 redirect to a 5-minute presigned R2 URL.

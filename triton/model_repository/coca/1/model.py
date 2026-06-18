@@ -16,7 +16,7 @@ class TritonPythonModel:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, _, self.preprocess = open_clip.create_model_and_transforms(
             "coca_ViT-L-14",
-            pretrained="laion2b_s13b_b90k",
+            pretrained="mscoco_finetuned_laion2B-s13B-b90k",
         )
         self.model = self.model.to(self.device).eval()
         self.tokenizer = open_clip.get_tokenizer("coca_ViT-L-14")
@@ -31,7 +31,7 @@ class TritonPythonModel:
                 if mode == "caption":
                     image = self._load_image(raw_data)
                     generated = self.model.generate(image)
-                    caption = self.tokenizer.tokenizer.decode(generated[0], skip_special_tokens=True)
+                    caption = self.tokenizer.decode(generated[0].tolist())
                     embed_out = pb_utils.Tensor("embedding", _ZERO_EMBED)
                     cap_out = pb_utils.Tensor("caption", np.array([[caption.encode("utf-8")]], dtype=object))
 
