@@ -1,5 +1,14 @@
 import axios from "axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+interface StorageStats {
+  used_bytes: number;
+  limit_bytes: number;
+}
+
+function formatMB(bytes: number): string {
+  return (bytes / 1024 ** 2).toFixed(0);
+}
 
 export default function Caption() {
   const [preview, setPreview] = useState<string | null>(null);
@@ -7,6 +16,20 @@ export default function Caption() {
   const [indexMsg, setIndexMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storage, setStorage] = useState<StorageStats | null>(null);
+
+  async function loadStorage() {
+    try {
+      const { data } = await axios.get<StorageStats>("/api/storage");
+      setStorage(data);
+    } catch {
+      // storage indicator is non-critical; ignore failures
+    }
+  }
+
+  useEffect(() => {
+    loadStorage();
+  }, []);
 
   async function handleFile(file: File) {
     setPreview(URL.createObjectURL(file));
@@ -23,6 +46,7 @@ export default function Caption() {
       ]);
       setCaption(captionRes.data.caption);
       setIndexMsg(`Indexed: ${indexRes.data.filename}`);
+      loadStorage();
     } catch {
       setError("Failed to generate caption. Is the backend running?");
     } finally {
@@ -39,6 +63,19 @@ export default function Caption() {
   return (
     <>
       <h1>Image Caption</h1>
+      {storage && (
+        <div className="storage-indicator">
+          <div className="storage-bar">
+            <div
+              className="storage-bar-fill"
+              style={{ width: `${Math.min(100, (storage.used_bytes / storage.limit_bytes) * 100)}%` }}
+            />
+          </div>
+          <span>
+            {formatMB(storage.used_bytes)} MB of {formatMB(storage.limit_bytes)} MB used
+          </span>
+        </div>
+      )}
       <label
         className="dropzone"
         onDrop={handleDrop}

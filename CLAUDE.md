@@ -50,12 +50,13 @@ Required R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `
 - **1 GB storage cap**: Upload endpoint sums `file_size` across all Qdrant points before accepting a new upload. Rejects with 400 if the new file would exceed 1 GiB.
 - **Search score threshold**: Results below 0.20 cosine similarity are filtered out so unrelated queries return nothing.
 - **Delete**: `DELETE /api/photos/{id}` removes from R2 first, then Qdrant. Frontend has a hover-to-reveal ✕ button with inline Confirm? step.
+- **Gallery pagination**: `GET /api/photos` uses Qdrant's `scroll` cursor (not offset/limit math) — `next_offset` is an opaque point-ID string passed back verbatim on the next request. No sort order is applied (Qdrant scroll order, not upload time), acceptable for the current low-volume use case.
 
 ## Backend (`backend/`)
 
 - `app/main.py` — FastAPI app, lifespan initializes Qdrant collection (recreates if vector size changed)
 - `app/routers/caption.py` — POST `/api/caption`
-- `app/routers/photos.py` — POST `/api/photos/upload`, POST `/api/photos/search`, GET `/api/photos/{id}`, DELETE `/api/photos/{id}`
+- `app/routers/photos.py` — POST `/api/photos/upload`, POST `/api/photos/search`, GET `/api/photos` (paginated list), GET `/api/storage` (usage stats), GET `/api/photos/{id}`, DELETE `/api/photos/{id}`
 - `app/services/r2_client.py` — boto3 wrapper for R2 (upload, exists, presign, delete)
 - `app/services/triton_client.py` — calls CoCa model with mode: `caption` | `encode_image` | `encode_text`
 - `app/services/vector_store.py` — Qdrant ops; VECTOR_SIZE=768 (CoCa embed dim)
@@ -73,8 +74,9 @@ python -m venv .venv
 
 ## Frontend (`frontend/`)
 
-- `src/pages/Caption.tsx` — drag/click to upload; calls caption + index in parallel; shows caption + "Indexed: filename"
+- `src/pages/Caption.tsx` — drag/click to upload; calls caption + index in parallel; shows caption + "Indexed: filename"; storage usage bar fetched from `/api/storage` on load and after each upload
 - `src/pages/Search.tsx` — text query → photo grid with similarity %, hover-to-delete with confirmation
+- `src/pages/Gallery.tsx` — paginates all indexed photos via `/api/photos` (Load more button), same hover-to-delete pattern as Search
 - `src/index.css` — shared styles
 
 ### Testing (frontend)
@@ -99,10 +101,6 @@ Model downloads from HuggingFace on first run (~1.5 GB, cached in `hf_cache` Doc
 - Stale `blip_caption/` and `clip_encode/` dirs in `triton/model_repository/` have root-owned `__pycache__` files that need `sudo rm -rf` to fully remove; workaround is `--model-control-mode=explicit --load-model=coca` in the Triton command
 
 ## TODO
-
-### UX gaps
-- **Gallery/browse page** — no way to see all indexed photos without searching; add a third tab that paginates through all Qdrant points
-- **Storage usage indicator** — show "X MB of 1 GB used" on the Caption page so the cap doesn't come as a surprise
 
 ### ML improvements
 - **Store captions in Qdrant payload** — captions are generated but discarded; storing them enables showing captions under search results and keyword-based fallback search

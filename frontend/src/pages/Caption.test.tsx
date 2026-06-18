@@ -4,10 +4,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import Caption from "./Caption";
 
 const mockPost = vi.hoisted(() => vi.fn());
-vi.mock("axios", () => ({ default: { post: mockPost } }));
+const mockGet = vi.hoisted(() => vi.fn());
+vi.mock("axios", () => ({ default: { post: mockPost, get: mockGet } }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGet.mockResolvedValue({ data: { used_bytes: 0, limit_bytes: 1024 ** 3 } });
 });
 
 describe("Caption page", () => {
@@ -49,6 +51,15 @@ describe("Caption page", () => {
     expect(screen.getByText(/generating caption/i)).toBeInTheDocument();
     await act(async () => {
       resolve({ data: { caption: "done" } });
+    });
+  });
+
+  it("shows storage usage on load", async () => {
+    mockGet.mockResolvedValue({ data: { used_bytes: 512 ** 2, limit_bytes: 1024 ** 3 } });
+    render(<Caption />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/MB of 1024 MB used/)).toBeInTheDocument();
     });
   });
 

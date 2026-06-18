@@ -1,0 +1,85 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import Gallery from "./Gallery";
+
+const mockGet = vi.hoisted(() => vi.fn());
+const mockDelete = vi.hoisted(() => vi.fn());
+vi.mock("axios", () => ({ default: { get: mockGet, delete: mockDelete } }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("Gallery page", () => {
+  it("renders photos on load", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "2026-01-01", file_size: 100 },
+        ],
+        next_offset: null,
+      },
+    });
+    render(<Gallery />);
+
+    await waitFor(() => {
+      expect(screen.getByAltText("sunset.jpg")).toBeInTheDocument();
+    });
+  });
+
+  it("shows empty state when no photos are indexed", async () => {
+    mockGet.mockResolvedValue({ data: { photos: [], next_offset: null } });
+    render(<Gallery />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/no photos indexed yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it("loads the next page when Load more is clicked", async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        data: {
+          photos: [{ id: "photo-1", filename: "a.jpg", uploaded_at: "", file_size: 1 }],
+          next_offset: "cursor-1",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          photos: [{ id: "photo-2", filename: "b.jpg", uploaded_at: "", file_size: 1 }],
+          next_offset: null,
+        },
+      });
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("a.jpg"));
+    await userEvent.click(screen.getByRole("button", { name: /load more/i }));
+
+    await waitFor(() => {
+      expect(screen.getByAltText("a.jpg")).toBeInTheDocument();
+      expect(screen.getByAltText("b.jpg")).toBeInTheDocument();
+    });
+    expect(mockGet).toHaveBeenLastCalledWith("/api/photos", { params: { offset: "cursor-1" } });
+  });
+
+  it("removes photo from grid after confirmed delete", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [{ id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1 }],
+        next_offset: null,
+      },
+    });
+    mockDelete.mockResolvedValue({});
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    await userEvent.click(screen.getByTitle("Delete photo"));
+    await userEvent.click(screen.getByText("Confirm?"));
+
+    await waitFor(() => {
+      expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
+    });
+    expect(mockDelete).toHaveBeenCalledWith("/api/photos/photo-1");
+  });
+});
