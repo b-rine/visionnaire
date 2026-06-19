@@ -1,9 +1,11 @@
 import axios from "axios";
 import { useState } from "react";
+import PhotoLightbox from "../components/PhotoLightbox";
 
 interface SearchResult {
   id: string;
   filename: string;
+  caption?: string;
   score: number;
 }
 
@@ -13,6 +15,7 @@ export default function Search() {
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +44,7 @@ export default function Search() {
     try {
       await axios.delete(`/api/photos/${id}`);
       setResults((prev) => prev.filter((r) => r.id !== id));
+      setExpandedId((prev) => (prev === id ? null : prev));
     } catch {
       setError("Delete failed.");
     } finally {
@@ -78,6 +82,7 @@ export default function Search() {
                   src={`/api/photos/${r.id}`}
                   alt={r.filename}
                   onError={() => handleImageError(r.id)}
+                  onClick={() => setExpandedId(r.id)}
                 />
                 <span className="score-badge" title="Match strength">
                   {(r.score * 100).toFixed(0)}%
@@ -101,6 +106,19 @@ export default function Search() {
       </section>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {expandedId && results.some((r) => r.id === expandedId) && (
+        <PhotoLightbox
+          id={expandedId}
+          filename={results.find((r) => r.id === expandedId)!.filename}
+          caption={results.find((r) => r.id === expandedId)!.caption}
+          score={results.find((r) => r.id === expandedId)!.score}
+          pendingDelete={pendingDelete === expandedId}
+          deleting={deletingId === expandedId}
+          onDelete={() => handleDelete(expandedId)}
+          onClose={() => setExpandedId(null)}
+        />
+      )}
     </>
   );
 }

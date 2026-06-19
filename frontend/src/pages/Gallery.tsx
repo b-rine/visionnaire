@@ -1,11 +1,13 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
+import PhotoLightbox from "../components/PhotoLightbox";
 
 interface Photo {
   id: string;
   filename: string;
   uploaded_at: string;
   file_size: number;
+  caption?: string;
 }
 
 export default function Gallery() {
@@ -13,6 +15,7 @@ export default function Gallery() {
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [nextOffset, setNextOffset] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +52,7 @@ export default function Gallery() {
     try {
       await axios.delete(`/api/photos/${id}`);
       setPhotos((prev) => prev.filter((p) => p.id !== id));
+      setExpandedId((prev) => (prev === id ? null : prev));
     } catch {
       setError("Delete failed.");
     } finally {
@@ -72,6 +76,7 @@ export default function Gallery() {
                 src={`/api/photos/${p.id}`}
                 alt={p.filename}
                 onError={() => handleImageError(p.id)}
+                onClick={() => setExpandedId(p.id)}
               />
               <button
                 className="delete-btn"
@@ -97,6 +102,18 @@ export default function Gallery() {
       )}
 
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {expandedId && photos.some((p) => p.id === expandedId) && (
+        <PhotoLightbox
+          id={expandedId}
+          filename={photos.find((p) => p.id === expandedId)!.filename}
+          caption={photos.find((p) => p.id === expandedId)!.caption}
+          pendingDelete={pendingDelete === expandedId}
+          deleting={deletingId === expandedId}
+          onDelete={() => handleDelete(expandedId)}
+          onClose={() => setExpandedId(null)}
+        />
+      )}
     </>
   );
 }

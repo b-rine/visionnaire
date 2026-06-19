@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Gallery from "./Gallery";
@@ -81,5 +81,66 @@ describe("Gallery page", () => {
       expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
     });
     expect(mockDelete).toHaveBeenCalledWith("/api/photos/photo-1");
+  });
+
+  it("opens a lightbox with the larger image and caption when a thumbnail is clicked", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+        ],
+        next_offset: null,
+      },
+    });
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+
+    expect(screen.getAllByAltText("sunset.jpg")).toHaveLength(2);
+    expect(screen.getByText("a sunset over the ocean")).toBeInTheDocument();
+  });
+
+  it("closes the lightbox on Escape", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+        ],
+        next_offset: null,
+      },
+    });
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    expect(screen.getAllByAltText("sunset.jpg")).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getAllByAltText("sunset.jpg")).toHaveLength(1);
+  });
+
+  it("deletes the photo from within the lightbox and closes it", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+        ],
+        next_offset: null,
+      },
+    });
+    mockDelete.mockResolvedValue({});
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    const deleteButtons = screen.getAllByTitle("Delete photo");
+    await userEvent.click(deleteButtons[deleteButtons.length - 1]);
+    const confirmButtons = screen.getAllByText("Confirm?");
+    await userEvent.click(confirmButtons[confirmButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
+    });
   });
 });
