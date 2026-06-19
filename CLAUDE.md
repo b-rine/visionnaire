@@ -44,7 +44,8 @@ Required R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `
 ## Key design decisions
 
 - **Single model for caption + search**: CoCa ViT-L-14 (`mscoco_finetuned_laion2B-s13B-b90k`) replaces BLIP+CLIP. One Triton model handles captioning, image embedding, and text embedding in the same vector space — so searching with a generated caption gives consistent similarity scores. Originally used the base `laion2b_s13b_b90k` checkpoint, but that's trained only on raw LAION-2B web alt-text and produced tabloid-style hallucinated captions (e.g. inventing celebrity names/relationships) since that corpus is full of clickbait-style alt-text templates. Switched to the MS-COCO-finetuned checkpoint, which is what open_clip's own docs use for captioning — same architecture, fine-tuned on clean literal captions, still trains the contrastive objective alongside captioning so embedding/retrieval quality should hold.
-- **Captioning also indexes**: Caption tab calls `/api/caption` and `/api/photos/upload` in parallel. Search tab is search-only.
+- **Captioning also indexes**: Caption tab calls `/api/photos/upload`, which generates the caption (via `caption_image()`) and the embedding (via `encode_image()`) server-side and returns both. There's no standalone `/api/caption` endpoint — captioning and embedding are separate Triton forward passes (`mode="caption"` runs the decoder and zeroes the embedding output; `mode="encode_image"` does the reverse), so there's no way to get both from one inference call regardless of which endpoint orchestrates it; bundling them into the upload endpoint just means one HTTP round trip instead of two, and the caption is persisted instead of only displayed. Search tab is search-only.
+- **Captions persisted in Qdrant payload**: stored on upload, returned by `/api/photos/search` and `GET /api/photos`. On a deduplicated re-upload (same image hash already in R2), the existing caption is read back from the stored payload (`get_photo()`) rather than regenerated.
 - **Content-addressed photo IDs**: SHA-256 hash of image bytes → deterministic UUID. Same image uploaded twice returns the same ID without re-uploading (dedup via R2 `head_object`).
 - **Photos stored in R2**: No local disk storage. `GET /api/photos/{id}` returns a 302 redirect to a 5-minute presigned R2 URL.
 - **1 GB storage cap**: Upload endpoint sums `file_size` across all Qdrant points before accepting a new upload. Rejects with 400 if the new file would exceed 1 GiB.
@@ -55,11 +56,10 @@ Required R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `
 ## Backend (`backend/`)
 
 - `app/main.py` — FastAPI app, lifespan initializes Qdrant collection (recreates if vector size changed)
-- `app/routers/caption.py` — POST `/api/caption`
-- `app/routers/photos.py` — POST `/api/photos/upload`, POST `/api/photos/search`, GET `/api/photos` (paginated list), GET `/api/storage` (usage stats), GET `/api/photos/{id}`, DELETE `/api/photos/{id}`
+- `app/routers/photos.py` — POST `/api/photos/upload` (also captions), POST `/api/photos/search`, GET `/api/photos` (paginated list), GET `/api/storage` (usage stats), GET `/api/photos/{id}`, DELETE `/api/photos/{id}`
 - `app/services/r2_client.py` — boto3 wrapper for R2 (upload, exists, presign, delete)
 - `app/services/triton_client.py` — calls CoCa model with mode: `caption` | `encode_image` | `encode_text`
-- `app/services/vector_store.py` — Qdrant ops; VECTOR_SIZE=768 (CoCa embed dim)
+- `app/services/vector_store.py` — Qdrant ops; VECTOR_SIZE=768 (CoCa embed dim); `get_photo()` retrieves a single point's payload (used for dedup caption lookup)
 
 ### Testing (backend)
 
@@ -74,9 +74,10 @@ python -m venv .venv
 
 ## Frontend (`frontend/`)
 
-- `src/pages/Caption.tsx` — drag/click to upload; calls caption + index in parallel; shows caption + "Indexed: filename"; storage usage bar fetched from `/api/storage` on load and after each upload
-- `src/pages/Search.tsx` — text query → photo grid with similarity %, hover-to-delete with confirmation
-- `src/pages/Gallery.tsx` — paginates all indexed photos via `/api/photos` (Load more button), same hover-to-delete pattern as Search
+- `src/pages/Caption.tsx` — drag/click to upload; single `/api/photos/upload` call returns id + filename + caption; shows caption + "Indexed: filename"; storage usage bar fetched from `/api/storage` on load and after each upload
+- `src/pages/Search.tsx` — text query → photo grid with similarity %, hover-to-delete with confirmation, click a thumbnail to open it in `PhotoLightbox`
+- `src/pages/Gallery.tsx` — paginates all indexed photos via `/api/photos` (Load more button), same hover-to-delete pattern as Search, same lightbox-on-click
+- `src/components/PhotoLightbox.tsx` — shared modal: larger image, caption (if present), score badge (if present — Search passes it, Gallery doesn't), delete button (drives the parent page's existing confirm-step delete state, no delete logic of its own). Closes on backdrop click or Escape.
 - `src/index.css` — shared styles
 
 ### Testing (frontend)
@@ -103,7 +104,7 @@ Model downloads from HuggingFace on first run (~1.5 GB, cached in `hf_cache` Doc
 ## TODO
 
 ### ML improvements
-- **Store captions in Qdrant payload** — captions are generated but discarded; storing them enables showing captions under search results and keyword-based fallback search
+- **Keyword-based fallback search** — captions are now stored in the Qdrant payload (and shown in the lightbox), but there's no fallback to keyword/substring matching against them when semantic search returns nothing
 - **Fine-tune CoCa** — once enough photos are indexed, use the image-caption pairs to fine-tune the model for better domain-specific consistency
 
 ### Production readiness
