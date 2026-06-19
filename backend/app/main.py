@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from app.routers import caption, photos
+from app.routers import photos
 from app.services.vector_store import init_collection
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,5 +21,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(caption.router, prefix="/api")
 app.include_router(photos.router, prefix="/api")

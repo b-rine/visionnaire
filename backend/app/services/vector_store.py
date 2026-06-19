@@ -37,6 +37,7 @@ async def upsert_photo(
     filename: str,
     uploaded_at: str,
     file_size: int,
+    caption: str,
 ) -> None:
     client = _client()
     client.upsert(
@@ -49,10 +50,26 @@ async def upsert_photo(
                     "filename": filename,
                     "uploaded_at": uploaded_at,
                     "file_size": file_size,
+                    "caption": caption,
                 },
             )
         ],
     )
+
+
+async def get_photo(photo_id: str) -> dict | None:
+    client = _client()
+    records = client.retrieve(collection_name=COLLECTION, ids=[photo_id], with_payload=True)
+    if not records:
+        return None
+    r = records[0]
+    return {
+        "id": str(r.id),
+        "filename": r.payload.get("filename", ""),
+        "uploaded_at": r.payload.get("uploaded_at", ""),
+        "file_size": r.payload.get("file_size", 0),
+        "caption": r.payload.get("caption", ""),
+    }
 
 
 async def delete_photo(photo_id: str) -> None:
@@ -99,6 +116,7 @@ async def list_photos(
             "filename": r.payload.get("filename", ""),
             "uploaded_at": r.payload.get("uploaded_at", ""),
             "file_size": r.payload.get("file_size", 0),
+            "caption": r.payload.get("caption", ""),
         }
         for r in records
     ]

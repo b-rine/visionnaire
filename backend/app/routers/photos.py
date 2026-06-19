@@ -12,9 +12,10 @@ from app.services.r2_client import (
     object_exists_in_r2,
     upload_photo_to_r2,
 )
-from app.services.triton_client import encode_image, encode_text
+from app.services.triton_client import caption_image, encode_image, encode_text
 from app.services.vector_store import (
     delete_photo,
+    get_photo as get_photo_record,
     get_total_storage_bytes,
     list_photos,
     search_photos,
@@ -51,7 +52,8 @@ async def upload_photo(file: UploadFile = File(...)):
     photo_id = _photo_id(image_bytes)
 
     if await object_exists_in_r2(photo_id):
-        return {"id": photo_id, "filename": file.filename}
+        existing = await get_photo_record(photo_id)
+        return {"id": photo_id, "filename": file.filename, "caption": existing["caption"] if existing else ""}
 
     file_size = len(image_bytes)
     used = await get_total_storage_bytes()
@@ -60,15 +62,17 @@ async def upload_photo(file: UploadFile = File(...)):
 
     await upload_photo_to_r2(photo_id, image_bytes, file.content_type or "image/jpeg")
     embedding = await encode_image(image_bytes)
+    caption = await caption_image(image_bytes)
     await upsert_photo(
         photo_id=photo_id,
         embedding=embedding,
         filename=file.filename or "",
         uploaded_at=datetime.now(timezone.utc).isoformat(),
         file_size=file_size,
+        caption=caption,
     )
 
-    return {"id": photo_id, "filename": file.filename}
+    return {"id": photo_id, "filename": file.filename, "caption": caption}
 
 
 @router.post("/photos/search")
@@ -79,6 +83,7 @@ async def search_photos_endpoint(body: SearchRequest):
         {
             "id": str(hit.id),
             "filename": hit.payload["filename"],
+            "caption": hit.payload.get("caption", ""),
             "score": _display_score(hit.score),
         }
         for hit in results

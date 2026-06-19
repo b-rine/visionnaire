@@ -35,6 +35,7 @@ def test_upload_returns_id_and_filename(client):
     body = response.json()
     assert "id" in body
     assert body["filename"] == "beach.jpg"
+    assert body["caption"] == "a cat on a mat"
 
 
 def test_upload_rejects_non_image(client):
@@ -67,6 +68,20 @@ def test_upload_deduplicates_via_r2_head(client):
     mock_r2.assert_not_called()
 
 
+def test_upload_dedup_returns_stored_caption(client):
+    jpeg = _jpeg_bytes()
+    with (
+        patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True),
+        patch(
+            "app.routers.photos.get_photo_record",
+            new_callable=AsyncMock,
+            return_value={"id": "x", "filename": "img.jpg", "uploaded_at": "", "file_size": 1, "caption": "a dog on a beach"},
+        ),
+    ):
+        response = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+    assert response.json()["caption"] == "a dog on a beach"
+
+
 def test_upload_rejects_over_storage_limit(client):
     one_gib = 1 * 1024 ** 3
     with patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=one_gib):
@@ -81,7 +96,7 @@ def test_upload_rejects_over_storage_limit(client):
 def test_search_returns_results(client):
     hit = MagicMock()
     hit.id = "photo-abc"
-    hit.payload = {"filename": "mountain.jpg"}
+    hit.payload = {"filename": "mountain.jpg", "caption": "a mountain over a lake"}
     hit.score = 0.275  # midpoint of MIN_SCORE..SCORE_CEILING -> 0.5 display score
 
     with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[hit]):
@@ -92,6 +107,7 @@ def test_search_returns_results(client):
     assert len(results) == 1
     assert results[0]["id"] == "photo-abc"
     assert results[0]["filename"] == "mountain.jpg"
+    assert results[0]["caption"] == "a mountain over a lake"
     assert results[0]["score"] == pytest.approx(0.5)
 
 
@@ -121,8 +137,8 @@ def test_search_returns_empty_list(client):
 
 def test_list_photos_returns_page(client):
     photos = [
-        {"id": "a", "filename": "a.jpg", "uploaded_at": "2026-01-01T00:00:00Z", "file_size": 100},
-        {"id": "b", "filename": "b.jpg", "uploaded_at": "2026-01-02T00:00:00Z", "file_size": 200},
+        {"id": "a", "filename": "a.jpg", "uploaded_at": "2026-01-01T00:00:00Z", "file_size": 100, "caption": "a cat"},
+        {"id": "b", "filename": "b.jpg", "uploaded_at": "2026-01-02T00:00:00Z", "file_size": 200, "caption": "a dog"},
     ]
     with patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=(photos, "b")):
         response = client.get("/api/photos")
