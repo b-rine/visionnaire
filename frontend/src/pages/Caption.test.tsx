@@ -19,7 +19,7 @@ describe("Caption page", () => {
   });
 
   it("shows caption after successful upload", async () => {
-    mockPost.mockResolvedValue({ data: { caption: "a dog in a park" } });
+    mockPost.mockResolvedValue({ data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" } });
     render(<Caption />);
 
     const input = document.querySelector(
@@ -50,7 +50,7 @@ describe("Caption page", () => {
 
     expect(screen.getByText(/generating caption/i)).toBeInTheDocument();
     await act(async () => {
-      resolve({ data: { caption: "done" } });
+      resolve({ data: { id: "x", filename: "dog.jpg", caption: "done" } });
     });
   });
 
@@ -77,6 +77,24 @@ describe("Caption page", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/failed to generate caption/i)).toBeInTheDocument();
+    });
+  });
+
+  it("makes a single upload request instead of separate caption and upload calls", async () => {
+    mockPost.mockResolvedValue({ data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" } });
+    render(<Caption />);
+
+    const input = document.querySelector(
+      "input[type=file]"
+    ) as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(["img"], "dog.jpg", { type: "image/jpeg" })
+    );
+
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      expect(mockPost).toHaveBeenCalledWith("/api/photos/upload", expect.anything());
     });
   });
 });

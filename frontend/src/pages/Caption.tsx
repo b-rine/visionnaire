@@ -40,12 +40,12 @@ export default function Caption() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const [captionRes, indexRes] = await Promise.all([
-        axios.post<{ caption: string }>("/api/caption", fd),
-        axios.post<{ id: string; filename: string }>("/api/photos/upload", fd),
-      ]);
-      setCaption(captionRes.data.caption);
-      setIndexMsg(`Indexed: ${indexRes.data.filename}`);
+      const { data } = await axios.post<{ id: string; filename: string; caption: string }>(
+        "/api/photos/upload",
+        fd
+      );
+      setCaption(data.caption);
+      setIndexMsg(`Indexed: ${data.filename}`);
       loadStorage();
     } catch {
       setError("Failed to generate caption. Is the backend running?");
