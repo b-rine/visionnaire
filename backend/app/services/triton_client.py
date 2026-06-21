@@ -41,8 +41,12 @@ async def _coca_infer(data: bytes, mode: str) -> tuple[np.ndarray, str]:
         httpclient.InferRequestedOutput("caption"),
     ]
     result = client.infer(model_name="coca", inputs=inputs, outputs=outputs)
-    embedding = result.as_numpy("embedding")[0]  # (768,)
-    caption = result.as_numpy("caption")[0][0].decode("utf-8")
+    embedding_arr = result.as_numpy("embedding")
+    caption_arr = result.as_numpy("caption")
+    if embedding_arr is None or caption_arr is None:
+        raise RuntimeError("Triton response missing expected output tensor")
+    embedding = embedding_arr[0]  # (768,)
+    caption = caption_arr[0][0].decode("utf-8")
     return embedding, caption
 
 
