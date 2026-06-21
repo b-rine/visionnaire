@@ -1,7 +1,18 @@
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from starlette.testclient import TestClient
+
+os.environ.setdefault("API_KEY", "test-api-key")
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    from app.auth import limiter
+
+    limiter._storage.reset()
+    yield
 
 
 @pytest.fixture
@@ -65,4 +76,5 @@ def client():
         from app.main import app
 
         with TestClient(app) as c:
+            c.headers.update({"X-API-Key": "test-api-key"})
             yield c

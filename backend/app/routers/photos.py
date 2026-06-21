@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
+from app.auth import limiter, require_api_key
 from app.services.r2_client import (
     delete_photo_from_r2,
     get_r2_presigned_url,
@@ -22,7 +23,7 @@ from app.services.vector_store import (
     update_caption_override,
     upsert_photo,
 )
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -59,7 +60,12 @@ def _effective_caption(payload: dict) -> str:
 
 
 @router.post("/photos/upload")
-async def upload_photo(file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def upload_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    _: None = Depends(require_api_key),
+):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -134,7 +140,13 @@ async def list_photos_endpoint(limit: int = 50, offset: str | None = None):
 
 
 @router.patch("/photos/{photo_id}")
-async def edit_caption(photo_id: str, body: CaptionEditRequest):
+@limiter.limit("30/minute")
+async def edit_caption(
+    request: Request,
+    photo_id: str,
+    body: CaptionEditRequest,
+    _: None = Depends(require_api_key),
+):
     existing = await get_photo_record(photo_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -158,7 +170,12 @@ async def get_photo(photo_id: str):
 
 
 @router.delete("/photos/{photo_id}")
-async def delete_photo_endpoint(photo_id: str):
+@limiter.limit("30/minute")
+async def delete_photo_endpoint(
+    request: Request,
+    photo_id: str,
+    _: None = Depends(require_api_key),
+):
     if not await object_exists_in_r2(photo_id):
         raise HTTPException(status_code=404, detail="Photo not found")
     await delete_photo_from_r2(photo_id)
