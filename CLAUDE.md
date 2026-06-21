@@ -4,13 +4,13 @@ ML-powered photo app: image captioning + semantic search via a single CoCa ViT-L
 
 ## Architecture
 
-| Layer | Service | Port |
-|---|---|---|
-| Inference | Triton (CoCa ViT-L-14) | 8000–8002 |
-| Vector store | Qdrant | 6333 |
-| Object storage | Cloudflare R2 | (external) |
-| Backend | FastAPI | 8080 (→ 8000 inside) |
-| Frontend | React + Vite (served via nginx) | 3000 |
+| Layer          | Service                         | Port                 |
+| -------------- | ------------------------------- | -------------------- |
+| Inference      | Triton (CoCa ViT-L-14)          | 8000–8002            |
+| Vector store   | Qdrant                          | 6333                 |
+| Object storage | Cloudflare R2                   | (external)           |
+| Backend        | FastAPI                         | 8080 (→ 8000 inside) |
+| Frontend       | React + Vite (served via nginx) | 3000                 |
 
 Everything runs via Docker Compose. GPU (NVIDIA) is required for Triton.
 
@@ -22,9 +22,9 @@ Everything runs via Docker Compose. GPU (NVIDIA) is required for Triton.
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend API docs: http://localhost:8080/docs
-- Qdrant dashboard: http://localhost:6333/dashboard
+- Frontend: <http://localhost:3000>
+- Backend API docs: <http://localhost:8080/docs>
+- Qdrant dashboard: <http://localhost:6333/dashboard>
 
 ### Development (hot reload — no rebuild needed)
 
@@ -33,7 +33,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up triton qdrant 
 cd frontend && npm run dev
 ```
 
-Frontend at http://localhost:5173. API calls proxy to `localhost:8080` (see `vite.config.ts`). Backend reloads on Python file changes.
+Frontend at <http://localhost:5173>. API calls proxy to `localhost:8080` (see `vite.config.ts`). Backend reloads on Python file changes.
 
 ## Environment variables
 
@@ -52,14 +52,17 @@ Required R2 vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `
 - **Search score threshold & display rescale**: Raw cross-modal cosine similarity from CoCa is inherently compressed by the contrastive training's logit-scale temperature — unrelated pairs typically score ~0.05–0.15 raw, genuinely strong matches ~0.20–0.35. Results below `MIN_SCORE = 0.20` raw cosine are filtered out so unrelated queries return nothing. The remaining raw scores are then linearly rescaled from a fixed `[MIN_SCORE, SCORE_CEILING]` (0.20–0.35) range to 0–100% for display, so a confident match shows as a high percentage instead of a confusing ~30%. This is a **fixed** range, not relative to each query's own top result — commit `bd23094` tried top-result-relative normalization (best match always 100%) and `e30002b` reverted it because unrelated searches also showed 100%. `SCORE_CEILING` is a heuristic for the mscoco-finetuned checkpoint; revisit if real usage data suggests a different calibration.
 - **Delete**: `DELETE /api/photos/{id}` removes from R2 first, then Qdrant. Frontend has a hover-to-reveal ✕ button with inline Confirm? step.
 - **Gallery pagination**: `GET /api/photos` uses Qdrant's `scroll` cursor (not offset/limit math) — `next_offset` is an opaque point-ID string passed back verbatim on the next request. No sort order is applied (Qdrant scroll order, not upload time), acceptable for the current low-volume use case.
+- **Manual caption editing via `caption_override`**: `PATCH /api/photos/{id}` (body: `{"caption": str}`) sets a `caption_override` payload field, stored separately from the auto-generated `caption` rather than overwriting it. Search embeddings come from `encode_image()` on the raw photo bytes, not the caption text, so editing a caption has zero effect on search ranking either way — but keeping the original CoCa output around preserves clean image→caption pairs for eventual fine-tuning. `_effective_caption()` (`caption_override or caption`) is applied everywhere a caption is returned (upload, search, list). An empty-string `caption` in the PATCH body clears the override and reverts display to the auto-generated caption. Frontend: edit affordance lives in `PhotoLightbox` (pencil icon → textarea + Save/Cancel); both `Gallery.tsx` and `Search.tsx` wire an `onCaptionUpdated` callback so the edit persists in their local list state across lightbox close/reopen without a full refetch.
+- **Keyword search mode**: `POST /api/photos/search` takes an optional `mode: "semantic" | "keyword"` (default `"semantic"`). Keyword mode does a Qdrant `MatchText` payload filter (`scroll`, not vector `search`) across both `caption` and `caption_override`, OR'd together — a binary text match, not a cosine similarity, so results omit the `score` key entirely (not `null`) and the frontend only renders the score badge `if (score !== undefined)`. Result order is Qdrant scroll order, not relevance-ranked — acceptable since this is a recall backstop, not the primary ranked search. Requires a Qdrant payload text index on both fields, created in `init_collection()` via `create_payload_index` (idempotent, safe to call on every startup). **Tokenizer must be `WORD`, not `WHITESPACE`**: `WHITESPACE` treats `"Alex's"` as one unsplit token, so a query for `"Alex"` would never match it; `WORD` splits on non-alphanumeric characters, producing a separate `"alex"` token that the query can match. Confirmed by a live repro against Qdrant before settling on `WORD`. Frontend: explicit mode toggle on the Search page ("Search by similarity" / "Search by keyword"), not auto-merged with semantic results.
+- **Gated Qdrant integration test**: `backend/tests/test_integration_qdrant.py` runs against a real Qdrant instance (Triton/R2 stay mocked — Triton needs a GPU + ~1.5GB model download, infeasible on GitHub-hosted CI runners). Marked `@pytest.mark.integration` (registered in `pytest.ini`) and excluded from the default `pytest -v -m "not integration"` run. Each test monkeypatches `vector_store.COLLECTION` to a random throwaway name and deletes it afterward, so it never touches the real `photos` collection. CI runs it as a separate `backend-integration` job using the `qdrant/qdrant` service container (no GPU needed, so this can run on hosted runners unlike a hypothetical Triton integration test).
 
 ## Backend (`backend/`)
 
 - `app/main.py` — FastAPI app, lifespan initializes Qdrant collection (recreates if vector size changed)
-- `app/routers/photos.py` — POST `/api/photos/upload` (also captions), POST `/api/photos/search`, GET `/api/photos` (paginated list), GET `/api/storage` (usage stats), GET `/api/photos/{id}`, DELETE `/api/photos/{id}`
+- `app/routers/photos.py` — POST `/api/photos/upload` (also captions), POST `/api/photos/search` (`mode: semantic|keyword`), GET `/api/photos` (paginated list), GET `/api/storage` (usage stats), GET `/api/photos/{id}`, PATCH `/api/photos/{id}` (caption edit), DELETE `/api/photos/{id}`
 - `app/services/r2_client.py` — boto3 wrapper for R2 (upload, exists, presign, delete)
 - `app/services/triton_client.py` — calls CoCa model with mode: `caption` | `encode_image` | `encode_text`
-- `app/services/vector_store.py` — Qdrant ops; VECTOR_SIZE=768 (CoCa embed dim); `get_photo()` retrieves a single point's payload (used for dedup caption lookup)
+- `app/services/vector_store.py` — Qdrant ops; VECTOR_SIZE=768 (CoCa embed dim); `get_photo()` retrieves a single point's payload (used for dedup caption lookup); `update_caption_override()` is a payload-only `set_payload` (no vector resend); `search_photos_keyword()` does a `MatchText` `scroll` filter against `caption`/`caption_override`
 
 ### Testing (backend)
 
@@ -69,15 +72,17 @@ External services (Triton, Qdrant, R2) are all mocked — tests run without Dock
 cd backend
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-.venv/bin/pytest -v
+.venv/bin/pytest -v -m "not integration"
 ```
+
+Gated integration suite (needs a real Qdrant): `docker compose up -d qdrant && QDRANT_HOST=localhost .venv/bin/pytest -v -m integration`.
 
 ## Frontend (`frontend/`)
 
 - `src/pages/Caption.tsx` — drag/click to upload; single `/api/photos/upload` call returns id + filename + caption; shows caption + "Indexed: filename"; storage usage bar fetched from `/api/storage` on load and after each upload
-- `src/pages/Search.tsx` — text query → photo grid with similarity %, hover-to-delete with confirmation, click a thumbnail to open it in `PhotoLightbox`
+- `src/pages/Search.tsx` — mode toggle ("Search by similarity" / "Search by keyword") above the search bar; text query → photo grid, similarity mode shows score %, keyword mode shows no score badge; hover-to-delete with confirmation; click a thumbnail to open it in `PhotoLightbox`
 - `src/pages/Gallery.tsx` — paginates all indexed photos via `/api/photos` (Load more button), same hover-to-delete pattern as Search, same lightbox-on-click
-- `src/components/PhotoLightbox.tsx` — shared modal: larger image, caption (if present), score badge (if present — Search passes it, Gallery doesn't), delete button (drives the parent page's existing confirm-step delete state, no delete logic of its own). Closes on backdrop click or Escape.
+- `src/components/PhotoLightbox.tsx` — shared modal: larger image, caption (if present) with a pencil-icon edit affordance (textarea + Save/Cancel, `PATCH /api/photos/{id}` on save), score badge (if present — Search passes it, Gallery doesn't), delete button (drives the parent page's existing confirm-step delete state, no delete logic of its own). An optional `onCaptionUpdated` callback lets the parent page (`Gallery`/`Search`) update its own list state so an edited caption persists across lightbox close/reopen. Closes on backdrop click or Escape.
 - `src/index.css` — shared styles
 
 ### Testing (frontend)
@@ -104,9 +109,14 @@ Model downloads from HuggingFace on first run (~1.5 GB, cached in `hf_cache` Doc
 ## TODO
 
 ### ML improvements
-- **Keyword-based fallback search** — captions are now stored in the Qdrant payload (and shown in the lightbox), but there's no fallback to keyword/substring matching against them when semantic search returns nothing
+
 - **Fine-tune CoCa** — once enough photos are indexed, use the image-caption pairs to fine-tune the model for better domain-specific consistency
 
 ### Production readiness
+
 - **Authentication** — any user with the URL can upload/delete; add at minimum an API key check on write endpoints
+- **Rate limiting** — no endpoint is throttled; `/api/photos/upload` can be hammered to force repeated Triton inference; pair with the auth item above (e.g. API key + per-key rate limit)
+- **Complete docker-compose health checks** — only Triton has a healthcheck; Qdrant and backend use default `depends_on: service_started`, so backend can start before Qdrant is ready
+- **GPU memory guardrails for Triton** — nothing caps or monitors GPU memory use; given the GTX 1060 6GB dev constraint, add a memory limit/monitoring before running unattended
+- **Structured logging** — no logging currently wraps Triton/Qdrant/R2 calls in `backend/app/services/`, so failures surface as bare stack traces with no request context
 - **Deploy** — backend + frontend + Qdrant can run on a small VPS; Triton stays local or moves to a rented GPU instance
