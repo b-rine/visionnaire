@@ -6,12 +6,12 @@ input [
   {
     name: "input_data"
     data_type: TYPE_STRING
-    dims: [ 1 ]
+    dims: [1]
   },
   {
     name: "input_mode"
     data_type: TYPE_STRING
-    dims: [ 1 ]
+    dims: [1]
   }
 ]
 
@@ -19,12 +19,12 @@ output [
   {
     name: "embedding"
     data_type: TYPE_FP32
-    dims: [ 768 ]
+    dims: [768]
   },
   {
     name: "caption"
     data_type: TYPE_STRING
-    dims: [ 1 ]
+    dims: [1]
   }
 ]
 

@@ -40,10 +40,11 @@ export default function Caption() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const { data } = await axios.post<{ id: string; filename: string; caption: string }>(
-        "/api/photos/upload",
-        fd
-      );
+      const { data } = await axios.post<{
+        id: string;
+        filename: string;
+        caption: string;
+      }>("/api/photos/upload", fd);
       setCaption(data.caption);
       setIndexMsg(`Indexed: ${data.filename}`);
       loadStorage();
@@ -68,11 +69,14 @@ export default function Caption() {
           <div className="storage-bar">
             <div
               className="storage-bar-fill"
-              style={{ width: `${Math.min(100, (storage.used_bytes / storage.limit_bytes) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (storage.used_bytes / storage.limit_bytes) * 100)}%`,
+              }}
             />
           </div>
           <span>
-            {formatMB(storage.used_bytes)} MB of {formatMB(storage.limit_bytes)} MB used
+            {formatMB(storage.used_bytes)} MB of {formatMB(storage.limit_bytes)}{" "}
+            MB used
           </span>
         </div>
       )}
@@ -90,9 +94,7 @@ export default function Caption() {
         Drag & drop an image here, or click to browse
       </label>
 
-      {preview && (
-        <img src={preview} alt="preview" className="preview-image" />
-      )}
+      {preview && <img src={preview} alt="preview" className="preview-image" />}
       {loading && <p className="loading">Generating caption & indexing...</p>}
       {caption && (
         <div className="caption-result">

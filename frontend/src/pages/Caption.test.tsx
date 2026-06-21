@@ -9,7 +9,9 @@ vi.mock("axios", () => ({ default: { post: mockPost, get: mockGet } }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGet.mockResolvedValue({ data: { used_bytes: 0, limit_bytes: 1024 ** 3 } });
+  mockGet.mockResolvedValue({
+    data: { used_bytes: 0, limit_bytes: 1024 ** 3 },
+  });
 });
 
 describe("Caption page", () => {
@@ -19,15 +21,17 @@ describe("Caption page", () => {
   });
 
   it("shows caption after successful upload", async () => {
-    mockPost.mockResolvedValue({ data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" } });
+    mockPost.mockResolvedValue({
+      data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" },
+    });
     render(<Caption />);
 
     const input = document.querySelector(
-      "input[type=file]"
+      "input[type=file]",
     ) as HTMLInputElement;
     await userEvent.upload(
       input,
-      new File(["img"], "dog.jpg", { type: "image/jpeg" })
+      new File(["img"], "dog.jpg", { type: "image/jpeg" }),
     );
 
     await waitFor(() => {
@@ -41,11 +45,11 @@ describe("Caption page", () => {
     render(<Caption />);
 
     const input = document.querySelector(
-      "input[type=file]"
+      "input[type=file]",
     ) as HTMLInputElement;
     await userEvent.upload(
       input,
-      new File(["img"], "dog.jpg", { type: "image/jpeg" })
+      new File(["img"], "dog.jpg", { type: "image/jpeg" }),
     );
 
     expect(screen.getByText(/generating caption/i)).toBeInTheDocument();
@@ -55,7 +59,9 @@ describe("Caption page", () => {
   });
 
   it("shows storage usage on load", async () => {
-    mockGet.mockResolvedValue({ data: { used_bytes: 512 ** 2, limit_bytes: 1024 ** 3 } });
+    mockGet.mockResolvedValue({
+      data: { used_bytes: 512 ** 2, limit_bytes: 1024 ** 3 },
+    });
     render(<Caption />);
 
     await waitFor(() => {
@@ -68,33 +74,40 @@ describe("Caption page", () => {
     render(<Caption />);
 
     const input = document.querySelector(
-      "input[type=file]"
+      "input[type=file]",
     ) as HTMLInputElement;
     await userEvent.upload(
       input,
-      new File(["img"], "dog.jpg", { type: "image/jpeg" })
+      new File(["img"], "dog.jpg", { type: "image/jpeg" }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to generate caption/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/failed to generate caption/i),
+      ).toBeInTheDocument();
     });
   });
 
   it("makes a single upload request instead of separate caption and upload calls", async () => {
-    mockPost.mockResolvedValue({ data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" } });
+    mockPost.mockResolvedValue({
+      data: { id: "x", filename: "dog.jpg", caption: "a dog in a park" },
+    });
     render(<Caption />);
 
     const input = document.querySelector(
-      "input[type=file]"
+      "input[type=file]",
     ) as HTMLInputElement;
     await userEvent.upload(
       input,
-      new File(["img"], "dog.jpg", { type: "image/jpeg" })
+      new File(["img"], "dog.jpg", { type: "image/jpeg" }),
     );
 
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledTimes(1);
-      expect(mockPost).toHaveBeenCalledWith("/api/photos/upload", expect.anything());
+      expect(mockPost).toHaveBeenCalledWith(
+        "/api/photos/upload",
+        expect.anything(),
+      );
     });
   });
 });

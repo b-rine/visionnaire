@@ -1,7 +1,7 @@
 import os
 
-import botocore.exceptions
 import boto3
+import botocore.exceptions
 from botocore.config import Config
 
 R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
@@ -22,7 +22,9 @@ def _client():
     )
 
 
-async def upload_photo_to_r2(photo_id: str, image_bytes: bytes, content_type: str) -> None:
+async def upload_photo_to_r2(
+    photo_id: str, image_bytes: bytes, content_type: str
+) -> None:
     _client().put_object(
         Bucket=R2_BUCKET_NAME,
         Key=photo_id,
