@@ -4,7 +4,7 @@ services:
     command: tritonserver --model-repository=/models --log-verbose=1
     volumes:
       - ./triton/model_repository:/models
-      - hf_cache:/root/.cache/huggingface
+      - hf_cache:/home/triton-server/.cache/huggingface
     ports:
       - 8000:8000
       - 8001:8001
@@ -52,7 +52,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - 3000:80
+      - 3000:8080
     depends_on:
       - backend
 
