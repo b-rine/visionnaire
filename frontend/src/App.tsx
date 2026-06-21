@@ -1,11 +1,23 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { onUnauthorized } from "./apiKey";
+import ApiKeyPrompt from "./components/ApiKeyPrompt";
 import Caption from "./pages/Caption";
 import Gallery from "./pages/Gallery";
 import Search from "./pages/Search";
 
 export default function App() {
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+
+  useEffect(() => {
+    onUnauthorized(() => setShowKeyPrompt(true));
+  }, []);
+
   return (
     <BrowserRouter>
+      {showKeyPrompt && (
+        <ApiKeyPrompt onSaved={() => setShowKeyPrompt(false)} />
+      )}
       <nav>
         <Link to="/">Caption</Link>
         <Link to="/search">Search</Link>

@@ -236,6 +236,22 @@ section {
   align-items: center;
 }
 
+.api-key-prompt {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  gap: 12px;
+  max-width: 360px;
+}
+
+.api-key-prompt input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+}
+
 .lightbox-content img {
   max-width: 90vw;
   max-height: 80vh;
