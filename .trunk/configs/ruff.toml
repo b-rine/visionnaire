@@ -1,0 +1,7 @@
+# Generic, formatter-friendly config.
+select = ["B", "D3", "E", "F"]
+
+# Never enforce `E501` (line length violations). This should be handled by formatters.
+# B008 is FastAPI's documented DI pattern (`= File(...)`, `= Depends(...)`, etc.) — not a real
+# mutable-default bug, so it's a false positive for this codebase.
+ignore = ["E501", "B008"]

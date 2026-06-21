@@ -1,0 +1,5 @@
+{
+  "venvPath": "backend",
+  "venv": ".venv",
+  "exclude": ["triton/model_repository/coca/1/model.py"]
+}
