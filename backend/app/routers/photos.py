@@ -1,10 +1,7 @@
 import hashlib
 import uuid
 from datetime import datetime, timezone
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from typing import Literal
 
 from app.services.r2_client import (
     delete_photo_from_r2,
@@ -15,22 +12,36 @@ from app.services.r2_client import (
 from app.services.triton_client import caption_image, encode_image, encode_text
 from app.services.vector_store import (
     delete_photo,
-    get_photo as get_photo_record,
+)
+from app.services.vector_store import get_photo as get_photo_record
+from app.services.vector_store import (
     get_total_storage_bytes,
     list_photos,
     search_photos,
+    search_photos_keyword,
+    update_caption_override,
     upsert_photo,
 )
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
 STORAGE_LIMIT_BYTES = 1 * 1024**3  # 1 GiB
 MIN_SCORE = 0.20
-SCORE_CEILING = 0.35  # raw cosine representing a confident match for this CoCa checkpoint
+SCORE_CEILING = (
+    0.35  # raw cosine representing a confident match for this CoCa checkpoint
+)
 
 router = APIRouter()
 
 
 class SearchRequest(BaseModel):
     query: str
+    mode: Literal["semantic", "keyword"] = "semantic"
+
+
+class CaptionEditRequest(BaseModel):
+    caption: str
 
 
 def _photo_id(image_bytes: bytes) -> str:
@@ -43,6 +54,10 @@ def _display_score(raw_score: float) -> float:
     return max(0.0, min(1.0, scaled))
 
 
+def _effective_caption(payload: dict) -> str:
+    return payload.get("caption_override") or payload.get("caption", "")
+
+
 @router.post("/photos/upload")
 async def upload_photo(file: UploadFile = File(...)):
     if not file.content_type or not file.content_type.startswith("image/"):
@@ -53,12 +68,19 @@ async def upload_photo(file: UploadFile = File(...)):
 
     if await object_exists_in_r2(photo_id):
         existing = await get_photo_record(photo_id)
-        return {"id": photo_id, "filename": file.filename, "caption": existing["caption"] if existing else ""}
+        return {
+            "id": photo_id,
+            "filename": file.filename,
+            "caption": _effective_caption(existing) if existing else "",
+        }
 
     file_size = len(image_bytes)
     used = await get_total_storage_bytes()
     if used + file_size > STORAGE_LIMIT_BYTES:
-        raise HTTPException(status_code=400, detail="Storage limit reached (1 GB). Delete some photos first.")
+        raise HTTPException(
+            status_code=400,
+            detail="Storage limit reached (1 GB). Delete some photos first.",
+        )
 
     await upload_photo_to_r2(photo_id, image_bytes, file.content_type or "image/jpeg")
     embedding = await encode_image(image_bytes)
@@ -77,13 +99,24 @@ async def upload_photo(file: UploadFile = File(...)):
 
 @router.post("/photos/search")
 async def search_photos_endpoint(body: SearchRequest):
+    if body.mode == "keyword":
+        records = await search_photos_keyword(body.query, top_k=10)
+        return [
+            {
+                "id": str(record.id),
+                "filename": (record.payload or {})["filename"],
+                "caption": _effective_caption(record.payload or {}),
+            }
+            for record in records
+        ]
+
     embedding = await encode_text(body.query)
     results = await search_photos(embedding, top_k=10)
     return [
         {
             "id": str(hit.id),
-            "filename": hit.payload["filename"],
-            "caption": hit.payload.get("caption", ""),
+            "filename": (hit.payload or {})["filename"],
+            "caption": _effective_caption(hit.payload or {}),
             "score": _display_score(hit.score),
         }
         for hit in results
@@ -94,7 +127,20 @@ async def search_photos_endpoint(body: SearchRequest):
 @router.get("/photos")
 async def list_photos_endpoint(limit: int = 50, offset: str | None = None):
     photos, next_offset = await list_photos(limit=limit, offset=offset)
+    photos = [{**p, "caption": _effective_caption(p)} for p in photos]
+    for p in photos:
+        p.pop("caption_override", None)
     return {"photos": photos, "next_offset": next_offset}
+
+
+@router.patch("/photos/{photo_id}")
+async def edit_caption(photo_id: str, body: CaptionEditRequest):
+    existing = await get_photo_record(photo_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    await update_caption_override(photo_id, body.caption)
+    effective = body.caption or existing["caption"]
+    return {"id": photo_id, "caption": effective}
 
 
 @router.get("/storage")

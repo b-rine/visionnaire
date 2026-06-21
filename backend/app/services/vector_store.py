@@ -2,7 +2,19 @@ import os
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
-from qdrant_client.models import Distance, PointStruct, ScoredPoint, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchText,
+    PointStruct,
+    Record,
+    ScoredPoint,
+    TextIndexParams,
+    TextIndexType,
+    TokenizerType,
+    VectorParams,
+)
 
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
@@ -14,6 +26,10 @@ def _client() -> QdrantClient:
     return QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=15)
 
 
+def _payload(record: Record | ScoredPoint) -> dict:
+    return record.payload or {}
+
+
 async def init_collection() -> None:
     client = _client()
     existing = {c.name for c in client.get_collections().collections}
@@ -21,14 +37,33 @@ async def init_collection() -> None:
         info = client.get_collection(COLLECTION)
         vectors = info.config.params.vectors
         current_size = vectors.size if isinstance(vectors, VectorParams) else None
-        if current_size == VECTOR_SIZE:
-            return
-        # Dimension changed (e.g. switched models) — recreate
-        client.delete_collection(COLLECTION)
-    client.create_collection(
-        collection_name=COLLECTION,
-        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+        if current_size != VECTOR_SIZE:
+            # Dimension changed (e.g. switched models) — recreate
+            client.delete_collection(COLLECTION)
+            client.create_collection(
+                collection_name=COLLECTION,
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            )
+    else:
+        client.create_collection(
+            collection_name=COLLECTION,
+            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+        )
+    _ensure_text_indexes(client)
+
+
+def _ensure_text_indexes(client: QdrantClient) -> None:
+    # WORD (not WHITESPACE) so punctuation-attached words like "Alex's" still
+    # tokenize down to "alex" and remain matchable by a plain keyword query.
+    text_index = TextIndexParams(
+        type=TextIndexType.TEXT,
+        tokenizer=TokenizerType.WORD,
+        lowercase=True,
     )
+    for field in ("caption", "caption_override"):
+        client.create_payload_index(
+            COLLECTION, field_name=field, field_schema=text_index
+        )
 
 
 async def upsert_photo(
@@ -59,17 +94,30 @@ async def upsert_photo(
 
 async def get_photo(photo_id: str) -> dict | None:
     client = _client()
-    records = client.retrieve(collection_name=COLLECTION, ids=[photo_id], with_payload=True)
+    records = client.retrieve(
+        collection_name=COLLECTION, ids=[photo_id], with_payload=True
+    )
     if not records:
         return None
     r = records[0]
+    payload = _payload(r)
     return {
         "id": str(r.id),
-        "filename": r.payload.get("filename", ""),
-        "uploaded_at": r.payload.get("uploaded_at", ""),
-        "file_size": r.payload.get("file_size", 0),
-        "caption": r.payload.get("caption", ""),
+        "filename": payload.get("filename", ""),
+        "uploaded_at": payload.get("uploaded_at", ""),
+        "file_size": payload.get("file_size", 0),
+        "caption": payload.get("caption", ""),
+        "caption_override": payload.get("caption_override", ""),
     }
+
+
+async def update_caption_override(photo_id: str, caption_override: str) -> None:
+    client = _client()
+    client.set_payload(
+        collection_name=COLLECTION,
+        payload={"caption_override": caption_override},
+        points=[photo_id],
+    )
 
 
 async def delete_photo(photo_id: str) -> None:
@@ -91,7 +139,7 @@ async def get_total_storage_bytes() -> int:
             with_payload=["file_size"],
             with_vectors=False,
         )
-        total += sum(r.payload.get("file_size", 0) for r in records)
+        total += sum(_payload(r).get("file_size", 0) for r in records)
         if next_offset is None:
             break
         offset = next_offset
@@ -110,16 +158,19 @@ async def list_photos(
         with_payload=True,
         with_vectors=False,
     )
-    photos = [
-        {
-            "id": str(r.id),
-            "filename": r.payload.get("filename", ""),
-            "uploaded_at": r.payload.get("uploaded_at", ""),
-            "file_size": r.payload.get("file_size", 0),
-            "caption": r.payload.get("caption", ""),
-        }
-        for r in records
-    ]
+    photos = []
+    for r in records:
+        payload = _payload(r)
+        photos.append(
+            {
+                "id": str(r.id),
+                "filename": payload.get("filename", ""),
+                "uploaded_at": payload.get("uploaded_at", ""),
+                "file_size": payload.get("file_size", 0),
+                "caption": payload.get("caption", ""),
+                "caption_override": payload.get("caption_override", ""),
+            }
+        )
     return photos, str(next_offset) if next_offset is not None else None
 
 
@@ -134,3 +185,20 @@ async def search_photos(
         limit=top_k,
         with_payload=True,
     )
+
+
+async def search_photos_keyword(query: str, top_k: int = 10) -> list[Record]:
+    client = _client()
+    records, _ = client.scroll(
+        collection_name=COLLECTION,
+        scroll_filter=Filter(
+            should=[
+                FieldCondition(key="caption", match=MatchText(text=query)),
+                FieldCondition(key="caption_override", match=MatchText(text=query)),
+            ]
+        ),
+        limit=top_k,
+        with_payload=True,
+        with_vectors=False,
+    )
+    return records

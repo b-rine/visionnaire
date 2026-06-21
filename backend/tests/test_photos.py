@@ -2,9 +2,8 @@ import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from PIL import Image
-
 from app.routers.photos import _display_score
+from PIL import Image
 
 
 def _jpeg_bytes() -> bytes:
@@ -16,9 +15,9 @@ def _jpeg_bytes() -> bytes:
 @pytest.mark.parametrize(
     "raw_score,expected",
     [
-        (0.20, 0.0),   # floor (MIN_SCORE)
-        (0.35, 1.0),   # ceiling (SCORE_CEILING)
-        (0.50, 1.0),   # above ceiling, clamped
+        (0.20, 0.0),  # floor (MIN_SCORE)
+        (0.35, 1.0),  # ceiling (SCORE_CEILING)
+        (0.50, 1.0),  # above ceiling, clamped
         (0.275, 0.5),  # midpoint
     ],
 )
@@ -47,7 +46,9 @@ def test_upload_rejects_non_image(client):
 
 
 def test_upload_calls_r2(client):
-    with patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock) as mock_r2:
+    with patch(
+        "app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock
+    ) as mock_r2:
         client.post(
             "/api/photos/upload",
             files={"file": ("photo.jpg", _jpeg_bytes(), "image/jpeg")},
@@ -59,11 +60,21 @@ def test_upload_calls_r2(client):
 def test_upload_deduplicates_via_r2_head(client):
     jpeg = _jpeg_bytes()
     with (
-        patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True),
-        patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock) as mock_r2,
+        patch(
+            "app.routers.photos.object_exists_in_r2",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            "app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock
+        ) as mock_r2,
     ):
-        r1 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
-        r2 = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+        r1 = client.post(
+            "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
+        )
+        r2 = client.post(
+            "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
+        )
     assert r1.json()["id"] == r2.json()["id"]
     mock_r2.assert_not_called()
 
@@ -71,20 +82,36 @@ def test_upload_deduplicates_via_r2_head(client):
 def test_upload_dedup_returns_stored_caption(client):
     jpeg = _jpeg_bytes()
     with (
-        patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True),
+        patch(
+            "app.routers.photos.object_exists_in_r2",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
         patch(
             "app.routers.photos.get_photo_record",
             new_callable=AsyncMock,
-            return_value={"id": "x", "filename": "img.jpg", "uploaded_at": "", "file_size": 1, "caption": "a dog on a beach"},
+            return_value={
+                "id": "x",
+                "filename": "img.jpg",
+                "uploaded_at": "",
+                "file_size": 1,
+                "caption": "a dog on a beach",
+            },
         ),
     ):
-        response = client.post("/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")})
+        response = client.post(
+            "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
+        )
     assert response.json()["caption"] == "a dog on a beach"
 
 
 def test_upload_rejects_over_storage_limit(client):
-    one_gib = 1 * 1024 ** 3
-    with patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=one_gib):
+    one_gib = 1 * 1024**3
+    with patch(
+        "app.routers.photos.get_total_storage_bytes",
+        new_callable=AsyncMock,
+        return_value=one_gib,
+    ):
         response = client.post(
             "/api/photos/upload",
             files={"file": ("big.jpg", _jpeg_bytes(), "image/jpeg")},
@@ -99,7 +126,9 @@ def test_search_returns_results(client):
     hit.payload = {"filename": "mountain.jpg", "caption": "a mountain over a lake"}
     hit.score = 0.275  # midpoint of MIN_SCORE..SCORE_CEILING -> 0.5 display score
 
-    with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[hit]):
+    with patch(
+        "app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[hit]
+    ):
         response = client.post("/api/photos/search", json={"query": "a mountain lake"})
 
     assert response.status_code == 200
@@ -120,7 +149,9 @@ def test_search_filters_low_score_results(client):
         return h
 
     hits = [make_hit("a", 0.25), make_hit("b", 0.19)]
-    with patch("app.routers.photos.search_photos", new_callable=AsyncMock, return_value=hits):
+    with patch(
+        "app.routers.photos.search_photos", new_callable=AsyncMock, return_value=hits
+    ):
         response = client.post("/api/photos/search", json={"query": "something"})
 
     results = response.json()
@@ -135,12 +166,92 @@ def test_search_returns_empty_list(client):
     assert response.json() == []
 
 
+def test_search_uses_caption_override_when_present(client):
+    hit = MagicMock()
+    hit.id = "photo-abc"
+    hit.payload = {
+        "filename": "mountain.jpg",
+        "caption": "a mountain over a lake",
+        "caption_override": "Lake Tahoe trip",
+    }
+    hit.score = 0.275
+
+    with patch(
+        "app.routers.photos.search_photos", new_callable=AsyncMock, return_value=[hit]
+    ):
+        response = client.post("/api/photos/search", json={"query": "a mountain lake"})
+
+    assert response.json()[0]["caption"] == "Lake Tahoe trip"
+
+
+def test_keyword_search_returns_results_without_score(client):
+    record = MagicMock()
+    record.id = "photo-xyz"
+    record.payload = {
+        "filename": "party.jpg",
+        "caption": "a group of people at a table",
+    }
+
+    with patch(
+        "app.routers.photos.search_photos_keyword",
+        new_callable=AsyncMock,
+        return_value=[record],
+    ) as mock_kw:
+        response = client.post(
+            "/api/photos/search", json={"query": "Alex", "mode": "keyword"}
+        )
+
+    mock_kw.assert_called_once_with("Alex", top_k=10)
+    results = response.json()
+    assert len(results) == 1
+    assert results[0]["id"] == "photo-xyz"
+    assert results[0]["caption"] == "a group of people at a table"
+    assert "score" not in results[0]
+
+
+def test_keyword_search_uses_caption_override(client):
+    record = MagicMock()
+    record.id = "photo-xyz"
+    record.payload = {
+        "filename": "party.jpg",
+        "caption": "a group of people at a table",
+        "caption_override": "Alex's birthday",
+    }
+
+    with patch(
+        "app.routers.photos.search_photos_keyword",
+        new_callable=AsyncMock,
+        return_value=[record],
+    ):
+        response = client.post(
+            "/api/photos/search", json={"query": "Alex", "mode": "keyword"}
+        )
+
+    assert response.json()[0]["caption"] == "Alex's birthday"
+
+
 def test_list_photos_returns_page(client):
     photos = [
-        {"id": "a", "filename": "a.jpg", "uploaded_at": "2026-01-01T00:00:00Z", "file_size": 100, "caption": "a cat"},
-        {"id": "b", "filename": "b.jpg", "uploaded_at": "2026-01-02T00:00:00Z", "file_size": 200, "caption": "a dog"},
+        {
+            "id": "a",
+            "filename": "a.jpg",
+            "uploaded_at": "2026-01-01T00:00:00Z",
+            "file_size": 100,
+            "caption": "a cat",
+        },
+        {
+            "id": "b",
+            "filename": "b.jpg",
+            "uploaded_at": "2026-01-02T00:00:00Z",
+            "file_size": 200,
+            "caption": "a dog",
+        },
     ]
-    with patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=(photos, "b")):
+    with patch(
+        "app.routers.photos.list_photos",
+        new_callable=AsyncMock,
+        return_value=(photos, "b"),
+    ):
         response = client.get("/api/photos")
     assert response.status_code == 200
     body = response.json()
@@ -149,21 +260,33 @@ def test_list_photos_returns_page(client):
 
 
 def test_list_photos_passes_pagination_params(client):
-    with patch("app.routers.photos.list_photos", new_callable=AsyncMock, return_value=([], None)) as mock_list:
+    with patch(
+        "app.routers.photos.list_photos",
+        new_callable=AsyncMock,
+        return_value=([], None),
+    ) as mock_list:
         client.get("/api/photos?limit=10&offset=xyz")
     mock_list.assert_called_once_with(limit=10, offset="xyz")
 
 
 def test_storage_stats(client):
-    one_gib = 1 * 1024 ** 3
-    with patch("app.routers.photos.get_total_storage_bytes", new_callable=AsyncMock, return_value=12345):
+    one_gib = 1 * 1024**3
+    with patch(
+        "app.routers.photos.get_total_storage_bytes",
+        new_callable=AsyncMock,
+        return_value=12345,
+    ):
         response = client.get("/api/storage")
     assert response.status_code == 200
     assert response.json() == {"used_bytes": 12345, "limit_bytes": one_gib}
 
 
 def test_get_photo_redirects(client):
-    with patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True):
+    with patch(
+        "app.routers.photos.object_exists_in_r2",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
         response = client.get("/api/photos/some-id", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "https://r2.example.com/photo"
@@ -175,7 +298,11 @@ def test_get_photo_not_found(client):
 
 
 def test_delete_photo_success(client):
-    with patch("app.routers.photos.object_exists_in_r2", new_callable=AsyncMock, return_value=True):
+    with patch(
+        "app.routers.photos.object_exists_in_r2",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
         response = client.delete("/api/photos/some-id")
     assert response.status_code == 200
     assert response.json() == {"deleted": "some-id"}
@@ -184,3 +311,56 @@ def test_delete_photo_success(client):
 def test_delete_photo_not_found(client):
     response = client.delete("/api/photos/does-not-exist")
     assert response.status_code == 404
+
+
+def test_edit_caption_success(client):
+    existing = {
+        "id": "some-id",
+        "filename": "img.jpg",
+        "uploaded_at": "",
+        "file_size": 1,
+        "caption": "a cat on a mat",
+        "caption_override": "",
+    }
+    with (
+        patch(
+            "app.routers.photos.get_photo_record",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ),
+        patch(
+            "app.routers.photos.update_caption_override", new_callable=AsyncMock
+        ) as mock_update,
+    ):
+        response = client.patch(
+            "/api/photos/some-id", json={"caption": "Alex's birthday"}
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"id": "some-id", "caption": "Alex's birthday"}
+    mock_update.assert_called_once_with("some-id", "Alex's birthday")
+
+
+def test_edit_caption_not_found(client):
+    response = client.patch("/api/photos/does-not-exist", json={"caption": "anything"})
+    assert response.status_code == 404
+
+
+def test_edit_caption_empty_string_reverts_to_auto_caption(client):
+    existing = {
+        "id": "some-id",
+        "filename": "img.jpg",
+        "uploaded_at": "",
+        "file_size": 1,
+        "caption": "a cat on a mat",
+        "caption_override": "old note",
+    }
+    with patch(
+        "app.routers.photos.get_photo_record",
+        new_callable=AsyncMock,
+        return_value=existing,
+    ):
+        response = client.patch("/api/photos/some-id", json={"caption": ""})
+
+    assert response.status_code == 200
+    assert response.json() == {"id": "some-id", "caption": "a cat on a mat"}
