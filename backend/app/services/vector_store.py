@@ -1,5 +1,6 @@
 import os
 
+from app.logging_utils import log_call
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from qdrant_client.models import (
@@ -30,6 +31,7 @@ def _payload(record: Record | ScoredPoint) -> dict:
     return record.payload or {}
 
 
+@log_call("qdrant.init_collection")
 async def init_collection() -> None:
     client = _client()
     existing = {c.name for c in client.get_collections().collections}
@@ -66,6 +68,7 @@ def _ensure_text_indexes(client: QdrantClient) -> None:
         )
 
 
+@log_call("qdrant.upsert_photo", context_keys=("photo_id",))
 async def upsert_photo(
     photo_id: str,
     embedding: list[float],
@@ -92,6 +95,7 @@ async def upsert_photo(
     )
 
 
+@log_call("qdrant.get_photo", context_keys=("photo_id",))
 async def get_photo(photo_id: str) -> dict | None:
     client = _client()
     records = client.retrieve(
@@ -111,6 +115,7 @@ async def get_photo(photo_id: str) -> dict | None:
     }
 
 
+@log_call("qdrant.update_caption_override", context_keys=("photo_id",))
 async def update_caption_override(photo_id: str, caption_override: str) -> None:
     client = _client()
     client.set_payload(
@@ -120,6 +125,7 @@ async def update_caption_override(photo_id: str, caption_override: str) -> None:
     )
 
 
+@log_call("qdrant.delete_photo", context_keys=("photo_id",))
 async def delete_photo(photo_id: str) -> None:
     client = _client()
     client.delete(
@@ -128,6 +134,7 @@ async def delete_photo(photo_id: str) -> None:
     )
 
 
+@log_call("qdrant.get_total_storage_bytes")
 async def get_total_storage_bytes() -> int:
     client = _client()
     total, offset = 0, None
@@ -146,6 +153,7 @@ async def get_total_storage_bytes() -> int:
     return total
 
 
+@log_call("qdrant.list_photos")
 async def list_photos(
     limit: int = 50,
     offset: str | None = None,
@@ -174,6 +182,7 @@ async def list_photos(
     return photos, str(next_offset) if next_offset is not None else None
 
 
+@log_call("qdrant.search_photos")
 async def search_photos(
     query_embedding: list[float],
     top_k: int = 10,
@@ -187,6 +196,7 @@ async def search_photos(
     )
 
 
+@log_call("qdrant.search_photos_keyword", context_keys=("query",))
 async def search_photos_keyword(query: str, top_k: int = 10) -> list[Record]:
     client = _client()
     records, _ = client.scroll(

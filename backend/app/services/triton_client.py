@@ -3,6 +3,7 @@ import re
 
 import numpy as np
 import tritonclient.http as httpclient
+from app.logging_utils import log_call
 
 TRITON_HOST = os.getenv("TRITON_HOST", "localhost")
 TRITON_PORT = int(os.getenv("TRITON_PORT", "8000"))
@@ -30,6 +31,7 @@ def _bytes_input(name: str, data: bytes) -> httpclient.InferInput:
     return inp
 
 
+@log_call("triton.infer", context_keys=("mode",))
 async def _coca_infer(data: bytes, mode: str) -> tuple[np.ndarray, str]:
     client = _client()
     inputs = [

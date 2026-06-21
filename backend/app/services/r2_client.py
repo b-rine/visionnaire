@@ -2,6 +2,7 @@ import os
 
 import boto3
 import botocore.exceptions
+from app.logging_utils import log_call
 from botocore.config import Config
 
 R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
@@ -22,6 +23,7 @@ def _client():
     )
 
 
+@log_call("r2.upload_photo", context_keys=("photo_id",))
 async def upload_photo_to_r2(
     photo_id: str, image_bytes: bytes, content_type: str
 ) -> None:
@@ -33,6 +35,7 @@ async def upload_photo_to_r2(
     )
 
 
+@log_call("r2.object_exists", context_keys=("photo_id",))
 async def object_exists_in_r2(photo_id: str) -> bool:
     try:
         _client().head_object(Bucket=R2_BUCKET_NAME, Key=photo_id)
@@ -41,6 +44,7 @@ async def object_exists_in_r2(photo_id: str) -> bool:
         return False
 
 
+@log_call("r2.get_presigned_url", context_keys=("photo_id",))
 async def get_r2_presigned_url(photo_id: str, expires_in: int = 300) -> str:
     return _client().generate_presigned_url(
         "get_object",
@@ -49,5 +53,6 @@ async def get_r2_presigned_url(photo_id: str, expires_in: int = 300) -> str:
     )
 
 
+@log_call("r2.delete_photo", context_keys=("photo_id",))
 async def delete_photo_from_r2(photo_id: str) -> None:
     _client().delete_object(Bucket=R2_BUCKET_NAME, Key=photo_id)
