@@ -5,7 +5,10 @@ import Search from "./Search";
 
 const mockPost = vi.hoisted(() => vi.fn());
 const mockDelete = vi.hoisted(() => vi.fn());
-vi.mock("axios", () => ({ default: { post: mockPost, delete: mockDelete } }));
+const mockPatch = vi.hoisted(() => vi.fn());
+vi.mock("axios", () => ({
+  default: { post: mockPost, delete: mockDelete, patch: mockPatch },
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -14,7 +17,9 @@ beforeEach(() => {
 describe("Search page", () => {
   it("renders the search bar", () => {
     render(<Search />);
-    expect(screen.getByPlaceholderText(/sunset over mountains/i)).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+    ).toBeInTheDocument();
   });
 
   it("renders results after a successful search", async () => {
@@ -28,7 +33,7 @@ describe("Search page", () => {
 
     await userEvent.type(
       screen.getByPlaceholderText(/sunset over mountains/i),
-      "sunset"
+      "sunset",
     );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
@@ -44,7 +49,7 @@ describe("Search page", () => {
 
     await userEvent.type(
       screen.getByPlaceholderText(/sunset over mountains/i),
-      "nothing"
+      "nothing",
     );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
@@ -59,12 +64,46 @@ describe("Search page", () => {
 
     await userEvent.type(
       screen.getByPlaceholderText(/sunset over mountains/i),
-      "mountains{Enter}"
+      "mountains{Enter}",
     );
 
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith("/api/photos/search", { query: "mountains" });
+      expect(mockPost).toHaveBeenCalledWith("/api/photos/search", {
+        query: "mountains",
+        mode: "semantic",
+      });
     });
+  });
+
+  it("sends mode: keyword and renders results without a score badge when keyword mode is selected", async () => {
+    mockPost.mockResolvedValue({
+      data: [
+        {
+          id: "photo-1",
+          filename: "party.jpg",
+          caption: "Alex's birthday party",
+        },
+      ],
+    });
+    render(<Search />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /search by keyword/i }),
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "Alex",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith("/api/photos/search", {
+        query: "Alex",
+        mode: "keyword",
+      });
+      expect(screen.getByAltText("party.jpg")).toBeInTheDocument();
+    });
+    expect(screen.queryByTitle("Match strength")).not.toBeInTheDocument();
   });
 
   it("shows Confirm? button after first delete click", async () => {
@@ -73,7 +112,10 @@ describe("Search page", () => {
     });
     render(<Search />);
 
-    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     await waitFor(() => screen.getByAltText("sunset.jpg"));
 
@@ -88,7 +130,10 @@ describe("Search page", () => {
     mockDelete.mockResolvedValue({});
     render(<Search />);
 
-    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     await waitFor(() => screen.getByAltText("sunset.jpg"));
 
@@ -103,11 +148,21 @@ describe("Search page", () => {
 
   it("opens a lightbox with the larger image and caption when a thumbnail is clicked", async () => {
     mockPost.mockResolvedValue({
-      data: [{ id: "photo-1", filename: "sunset.jpg", caption: "a sunset over the ocean", score: 0.95 }],
+      data: [
+        {
+          id: "photo-1",
+          filename: "sunset.jpg",
+          caption: "a sunset over the ocean",
+          score: 0.95,
+        },
+      ],
     });
     render(<Search />);
 
-    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     await waitFor(() => screen.getByAltText("sunset.jpg"));
 
@@ -120,11 +175,21 @@ describe("Search page", () => {
 
   it("closes the lightbox on Escape", async () => {
     mockPost.mockResolvedValue({
-      data: [{ id: "photo-1", filename: "sunset.jpg", caption: "a sunset over the ocean", score: 0.95 }],
+      data: [
+        {
+          id: "photo-1",
+          filename: "sunset.jpg",
+          caption: "a sunset over the ocean",
+          score: 0.95,
+        },
+      ],
     });
     render(<Search />);
 
-    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     await waitFor(() => screen.getByAltText("sunset.jpg"));
 
@@ -137,12 +202,22 @@ describe("Search page", () => {
 
   it("deletes the photo from within the lightbox and closes it", async () => {
     mockPost.mockResolvedValue({
-      data: [{ id: "photo-1", filename: "sunset.jpg", caption: "a sunset over the ocean", score: 0.95 }],
+      data: [
+        {
+          id: "photo-1",
+          filename: "sunset.jpg",
+          caption: "a sunset over the ocean",
+          score: 0.95,
+        },
+      ],
     });
     mockDelete.mockResolvedValue({});
     render(<Search />);
 
-    await userEvent.type(screen.getByPlaceholderText(/sunset over mountains/i), "sunset");
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
     await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
     await waitFor(() => screen.getByAltText("sunset.jpg"));
 
@@ -155,5 +230,49 @@ describe("Search page", () => {
     await waitFor(() => {
       expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
     });
+  });
+
+  it("edits a caption from the lightbox and keeps the change after reopening", async () => {
+    mockPost.mockResolvedValue({
+      data: [
+        {
+          id: "photo-1",
+          filename: "sunset.jpg",
+          caption: "a sunset over the ocean",
+          score: 0.95,
+        },
+      ],
+    });
+    mockPatch.mockResolvedValue({
+      data: { id: "photo-1", caption: "Sunset at the beach house" },
+    });
+    render(<Search />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    await userEvent.click(screen.getByTitle("Edit caption"));
+
+    const textboxes = screen.getAllByRole("textbox");
+    const textarea = textboxes[textboxes.length - 1];
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, "Sunset at the beach house");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith("/api/photos/photo-1", {
+        caption: "Sunset at the beach house",
+      });
+      expect(screen.getByText("Sunset at the beach house")).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    expect(screen.getByText("Sunset at the beach house")).toBeInTheDocument();
   });
 });

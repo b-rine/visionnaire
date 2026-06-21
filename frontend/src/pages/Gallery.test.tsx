@@ -5,7 +5,10 @@ import Gallery from "./Gallery";
 
 const mockGet = vi.hoisted(() => vi.fn());
 const mockDelete = vi.hoisted(() => vi.fn());
-vi.mock("axios", () => ({ default: { get: mockGet, delete: mockDelete } }));
+const mockPatch = vi.hoisted(() => vi.fn());
+vi.mock("axios", () => ({
+  default: { get: mockGet, delete: mockDelete, patch: mockPatch },
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -16,7 +19,12 @@ describe("Gallery page", () => {
     mockGet.mockResolvedValue({
       data: {
         photos: [
-          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "2026-01-01", file_size: 100 },
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "2026-01-01",
+            file_size: 100,
+          },
         ],
         next_offset: null,
       },
@@ -41,13 +49,17 @@ describe("Gallery page", () => {
     mockGet
       .mockResolvedValueOnce({
         data: {
-          photos: [{ id: "photo-1", filename: "a.jpg", uploaded_at: "", file_size: 1 }],
+          photos: [
+            { id: "photo-1", filename: "a.jpg", uploaded_at: "", file_size: 1 },
+          ],
           next_offset: "cursor-1",
         },
       })
       .mockResolvedValueOnce({
         data: {
-          photos: [{ id: "photo-2", filename: "b.jpg", uploaded_at: "", file_size: 1 }],
+          photos: [
+            { id: "photo-2", filename: "b.jpg", uploaded_at: "", file_size: 1 },
+          ],
           next_offset: null,
         },
       });
@@ -60,13 +72,22 @@ describe("Gallery page", () => {
       expect(screen.getByAltText("a.jpg")).toBeInTheDocument();
       expect(screen.getByAltText("b.jpg")).toBeInTheDocument();
     });
-    expect(mockGet).toHaveBeenLastCalledWith("/api/photos", { params: { offset: "cursor-1" } });
+    expect(mockGet).toHaveBeenLastCalledWith("/api/photos", {
+      params: { offset: "cursor-1" },
+    });
   });
 
   it("removes photo from grid after confirmed delete", async () => {
     mockGet.mockResolvedValue({
       data: {
-        photos: [{ id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1 }],
+        photos: [
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+          },
+        ],
         next_offset: null,
       },
     });
@@ -87,7 +108,13 @@ describe("Gallery page", () => {
     mockGet.mockResolvedValue({
       data: {
         photos: [
-          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+            caption: "a sunset over the ocean",
+          },
         ],
         next_offset: null,
       },
@@ -105,7 +132,13 @@ describe("Gallery page", () => {
     mockGet.mockResolvedValue({
       data: {
         photos: [
-          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+            caption: "a sunset over the ocean",
+          },
         ],
         next_offset: null,
       },
@@ -124,7 +157,13 @@ describe("Gallery page", () => {
     mockGet.mockResolvedValue({
       data: {
         photos: [
-          { id: "photo-1", filename: "sunset.jpg", uploaded_at: "", file_size: 1, caption: "a sunset over the ocean" },
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+            caption: "a sunset over the ocean",
+          },
         ],
         next_offset: null,
       },
@@ -142,5 +181,46 @@ describe("Gallery page", () => {
     await waitFor(() => {
       expect(screen.queryByAltText("sunset.jpg")).not.toBeInTheDocument();
     });
+  });
+
+  it("edits a caption from the lightbox and keeps the change after reopening", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+            caption: "a sunset over the ocean",
+          },
+        ],
+        next_offset: null,
+      },
+    });
+    mockPatch.mockResolvedValue({
+      data: { id: "photo-1", caption: "Sunset at the beach house" },
+    });
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    await userEvent.click(screen.getByTitle("Edit caption"));
+
+    const textarea = screen.getByRole("textbox");
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, "Sunset at the beach house");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith("/api/photos/photo-1", {
+        caption: "Sunset at the beach house",
+      });
+      expect(screen.getByText("Sunset at the beach house")).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await userEvent.click(screen.getAllByAltText("sunset.jpg")[0]);
+    expect(screen.getByText("Sunset at the beach house")).toBeInTheDocument();
   });
 });

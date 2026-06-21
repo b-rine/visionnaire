@@ -6,11 +6,14 @@ interface SearchResult {
   id: string;
   filename: string;
   caption?: string;
-  score: number;
+  score?: number;
 }
+
+type SearchMode = "semantic" | "keyword";
 
 export default function Search() {
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<SearchMode>("semantic");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -24,7 +27,10 @@ export default function Search() {
     setError(null);
     setSearching(true);
     try {
-      const { data } = await axios.post<SearchResult[]>("/api/photos/search", { query });
+      const { data } = await axios.post<SearchResult[]>("/api/photos/search", {
+        query,
+        mode,
+      });
       setResults(data);
     } catch {
       setError("Search failed.");
@@ -36,7 +42,10 @@ export default function Search() {
   async function handleDelete(id: string) {
     if (pendingDelete !== id) {
       setPendingDelete(id);
-      setTimeout(() => setPendingDelete((prev) => (prev === id ? null : prev)), 3000);
+      setTimeout(
+        () => setPendingDelete((prev) => (prev === id ? null : prev)),
+        3000,
+      );
       return;
     }
     setPendingDelete(null);
@@ -56,12 +65,32 @@ export default function Search() {
     setFailedIds((prev) => new Set([...prev, id]));
   }
 
+  function handleCaptionUpdated(id: string, caption: string) {
+    setResults((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, caption } : r)),
+    );
+  }
+
   return (
     <>
       <h1>Photo Search</h1>
 
       <section>
         <h2>Search by Description</h2>
+        <div className="mode-toggle">
+          <button
+            className={mode === "semantic" ? "active" : ""}
+            onClick={() => setMode("semantic")}
+          >
+            Search by similarity
+          </button>
+          <button
+            className={mode === "keyword" ? "active" : ""}
+            onClick={() => setMode("keyword")}
+          >
+            Search by keyword
+          </button>
+        </div>
         <div className="search-bar">
           <input
             value={query}
@@ -76,27 +105,35 @@ export default function Search() {
 
         {results.length > 0 && (
           <div className="photo-grid">
-            {results.filter((r) => !failedIds.has(r.id)).map((r) => (
-              <div key={r.id} className="photo-tile">
-                <img
-                  src={`/api/photos/${r.id}`}
-                  alt={r.filename}
-                  onError={() => handleImageError(r.id)}
-                  onClick={() => setExpandedId(r.id)}
-                />
-                <span className="score-badge" title="Match strength">
-                  {(r.score * 100).toFixed(0)}%
-                </span>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(r.id)}
-                  disabled={deletingId === r.id}
-                  title="Delete photo"
-                >
-                  {deletingId === r.id ? "..." : pendingDelete === r.id ? "Confirm?" : "✕"}
-                </button>
-              </div>
-            ))}
+            {results
+              .filter((r) => !failedIds.has(r.id))
+              .map((r) => (
+                <div key={r.id} className="photo-tile">
+                  <img
+                    src={`/api/photos/${r.id}`}
+                    alt={r.filename}
+                    onError={() => handleImageError(r.id)}
+                    onClick={() => setExpandedId(r.id)}
+                  />
+                  {r.score !== undefined && (
+                    <span className="score-badge" title="Match strength">
+                      {(r.score * 100).toFixed(0)}%
+                    </span>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(r.id)}
+                    disabled={deletingId === r.id}
+                    title="Delete photo"
+                  >
+                    {deletingId === r.id
+                      ? "..."
+                      : pendingDelete === r.id
+                        ? "Confirm?"
+                        : "✕"}
+                  </button>
+                </div>
+              ))}
           </div>
         )}
 
@@ -117,6 +154,9 @@ export default function Search() {
           deleting={deletingId === expandedId}
           onDelete={() => handleDelete(expandedId)}
           onClose={() => setExpandedId(null)}
+          onCaptionUpdated={(caption) =>
+            handleCaptionUpdated(expandedId, caption)
+          }
         />
       )}
     </>

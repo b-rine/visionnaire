@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import axios from "axios";
+import { useEffect, useState } from "react";
 
 interface PhotoLightboxProps {
   id: string;
@@ -9,6 +10,7 @@ interface PhotoLightboxProps {
   deleting: boolean;
   onDelete: () => void;
   onClose: () => void;
+  onCaptionUpdated?: (caption: string) => void;
 }
 
 export default function PhotoLightbox({
@@ -20,7 +22,13 @@ export default function PhotoLightbox({
   deleting,
   onDelete,
   onClose,
+  onCaptionUpdated,
 }: PhotoLightboxProps) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -28,6 +36,29 @@ export default function PhotoLightbox({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  function startEditing() {
+    setEditText(caption ?? "");
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  async function handleSaveCaption() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { data } = await axios.patch<{ id: string; caption: string }>(
+        `/api/photos/${id}`,
+        { caption: editText },
+      );
+      onCaptionUpdated?.(data.caption);
+      setEditing(false);
+    } catch {
+      setSaveError("Failed to save caption.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
@@ -46,7 +77,35 @@ export default function PhotoLightbox({
         >
           {deleting ? "..." : pendingDelete ? "Confirm?" : "✕"}
         </button>
-        {caption && <p className="lightbox-caption">{caption}</p>}
+        {editing ? (
+          <div className="caption-edit">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={3}
+            />
+            <div className="caption-edit-actions">
+              <button onClick={handleSaveCaption} disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button onClick={() => setEditing(false)} disabled={saving}>
+                Cancel
+              </button>
+            </div>
+            {saveError && <p style={{ color: "red" }}>{saveError}</p>}
+          </div>
+        ) : (
+          <div className="caption-row">
+            {caption && <p className="lightbox-caption">{caption}</p>}
+            <button
+              className="edit-caption-btn"
+              onClick={startEditing}
+              title="Edit caption"
+            >
+              ✎
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

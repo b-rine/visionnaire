@@ -24,10 +24,10 @@ export default function Gallery() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.get<{ photos: Photo[]; next_offset: string | null }>(
-        "/api/photos",
-        { params: offset ? { offset } : {} }
-      );
+      const { data } = await axios.get<{
+        photos: Photo[];
+        next_offset: string | null;
+      }>("/api/photos", { params: offset ? { offset } : {} });
       setPhotos((prev) => (offset ? [...prev, ...data.photos] : data.photos));
       setNextOffset(data.next_offset);
     } catch {
@@ -44,7 +44,10 @@ export default function Gallery() {
   async function handleDelete(id: string) {
     if (pendingDelete !== id) {
       setPendingDelete(id);
-      setTimeout(() => setPendingDelete((prev) => (prev === id ? null : prev)), 3000);
+      setTimeout(
+        () => setPendingDelete((prev) => (prev === id ? null : prev)),
+        3000,
+      );
       return;
     }
     setPendingDelete(null);
@@ -64,30 +67,40 @@ export default function Gallery() {
     setFailedIds((prev) => new Set([...prev, id]));
   }
 
+  function handleCaptionUpdated(id: string, caption: string) {
+    setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, caption } : p)));
+  }
+
   return (
     <>
       <h1>Gallery</h1>
 
       {photos.length > 0 && (
         <div className="photo-grid">
-          {photos.filter((p) => !failedIds.has(p.id)).map((p) => (
-            <div key={p.id} className="photo-tile">
-              <img
-                src={`/api/photos/${p.id}`}
-                alt={p.filename}
-                onError={() => handleImageError(p.id)}
-                onClick={() => setExpandedId(p.id)}
-              />
-              <button
-                className="delete-btn"
-                onClick={() => handleDelete(p.id)}
-                disabled={deletingId === p.id}
-                title="Delete photo"
-              >
-                {deletingId === p.id ? "..." : pendingDelete === p.id ? "Confirm?" : "✕"}
-              </button>
-            </div>
-          ))}
+          {photos
+            .filter((p) => !failedIds.has(p.id))
+            .map((p) => (
+              <div key={p.id} className="photo-tile">
+                <img
+                  src={`/api/photos/${p.id}`}
+                  alt={p.filename}
+                  onError={() => handleImageError(p.id)}
+                  onClick={() => setExpandedId(p.id)}
+                />
+                <button
+                  className="delete-btn"
+                  onClick={() => handleDelete(p.id)}
+                  disabled={deletingId === p.id}
+                  title="Delete photo"
+                >
+                  {deletingId === p.id
+                    ? "..."
+                    : pendingDelete === p.id
+                      ? "Confirm?"
+                      : "✕"}
+                </button>
+              </div>
+            ))}
         </div>
       )}
 
@@ -96,7 +109,11 @@ export default function Gallery() {
       )}
 
       {nextOffset && (
-        <button onClick={() => loadPage(nextOffset)} disabled={loading} style={{ marginTop: 20 }}>
+        <button
+          onClick={() => loadPage(nextOffset)}
+          disabled={loading}
+          style={{ marginTop: 20 }}
+        >
           {loading ? "Loading..." : "Load more"}
         </button>
       )}
@@ -112,6 +129,9 @@ export default function Gallery() {
           deleting={deletingId === expandedId}
           onDelete={() => handleDelete(expandedId)}
           onClose={() => setExpandedId(null)}
+          onCaptionUpdated={(caption) =>
+            handleCaptionUpdated(expandedId, caption)
+          }
         />
       )}
     </>
