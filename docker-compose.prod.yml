@@ -1,0 +1,51 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/localhost/6333;
+          printf 'GET /readyz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
+          cat <&3 | grep -q '200 OK'
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    environment:
+      - TRITON_HOST=${TRITON_HOST}
+      - TRITON_PORT=${TRITON_PORT:-443}
+      - TRITON_SSL=${TRITON_SSL:-true}
+      - CF_ACCESS_CLIENT_ID=${CF_ACCESS_CLIENT_ID}
+      - CF_ACCESS_CLIENT_SECRET=${CF_ACCESS_CLIENT_SECRET}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - API_KEY=${API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    ports:
+      - 8080:8000
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - 3000:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  qdrant_data:

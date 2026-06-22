@@ -1,0 +1,18 @@
+# Template for the public-facing tunnel: recruiter's browser -> Cloudflare
+# edge -> this tunnel -> the Oracle instance's frontend container.
+#
+# Setup (run on the Oracle instance):
+#   cloudflared tunnel login
+#   cloudflared tunnel create visionnaire-public
+#   cloudflared tunnel route dns visionnaire-public photos.yourdomain.com
+# This generates a credentials file under ~/.cloudflared/<TUNNEL_ID>.json —
+# never commit it. Fill in the two placeholders below, then run:
+#   cloudflared tunnel --config cloudflared/public-ingress.yml run
+
+tunnel: <TUNNEL_ID>
+credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: photos.yourdomain.com
+    service: http://localhost:3000
+  - service: http_status:404

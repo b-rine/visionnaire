@@ -1,0 +1,28 @@
+# Template for the private tunnel: Oracle instance's backend -> Cloudflare
+# edge -> this tunnel -> Triton running on the home GPU machine. Run this
+# tunnel on the HOME machine (not the Oracle instance).
+#
+# Setup (run on the home machine, alongside the existing `docker compose up`
+# for triton/qdrant):
+#   cloudflared tunnel login
+#   cloudflared tunnel create visionnaire-home-triton
+#   cloudflared tunnel route dns visionnaire-home-triton triton-internal.yourdomain.com
+#
+# Then, in the Cloudflare Zero Trust dashboard, add an Access policy on
+# triton-internal.yourdomain.com restricting it to a service token (Access ->
+# Service Auth -> Create Service Token). Put the resulting Client ID/Secret
+# into the Oracle instance's .env as CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET
+# — the backend sends them as headers on every Triton request (see
+# backend/app/services/triton_client.py). Without this Access policy, Triton
+# would be reachable by anyone who finds the hostname, not just your backend.
+#
+# Run with:
+#   cloudflared tunnel --config cloudflared/home-triton.yml run
+
+tunnel: <TUNNEL_ID>
+credentials-file: /home/<you>/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: triton-internal.yourdomain.com
+    service: http://localhost:8000
+  - service: http_status:404
