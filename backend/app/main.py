@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from app.auth import limiter
@@ -12,6 +13,8 @@ from slowapi.middleware import SlowAPIMiddleware
 
 configure_logging()
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,7 +26,7 @@ app = FastAPI(title="Visionnaire", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -84,3 +84,30 @@ def test_upload_rate_limit_returns_429_after_threshold(client):
 
     # A different, undecorated endpoint's counter is unaffected.
     assert client.get("/api/storage").status_code == 200
+
+
+def test_search_rate_limit_returns_429_after_threshold(client):
+    for _ in range(20):
+        response = client.post(
+            "/api/photos/search",
+            json={"query": "anything"},
+            headers={"X-API-Key": ""},
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        "/api/photos/search",
+        json={"query": "anything"},
+        headers={"X-API-Key": ""},
+    )
+    assert response.status_code == 429
+
+
+def test_search_requires_no_api_key_even_after_other_endpoints_401(client):
+    client.get("/api/photos", headers={"X-API-Key": "wrong"})
+    response = client.post(
+        "/api/photos/search",
+        json={"query": "anything"},
+        headers={"X-API-Key": "wrong"},
+    )
+    assert response.status_code == 200

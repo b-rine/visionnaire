@@ -7,6 +7,9 @@ from app.logging_utils import log_call
 
 TRITON_HOST = os.getenv("TRITON_HOST", "localhost")
 TRITON_PORT = int(os.getenv("TRITON_PORT", "8000"))
+TRITON_SSL = os.getenv("TRITON_SSL", "false").lower() == "true"
+CF_ACCESS_CLIENT_ID = os.getenv("CF_ACCESS_CLIENT_ID", "")
+CF_ACCESS_CLIENT_SECRET = os.getenv("CF_ACCESS_CLIENT_SECRET", "")
 
 _CAPTION_TOKEN_RE = re.compile(r"<start_of_text>|<end_of_text>")
 _SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,!?;:])")
@@ -21,7 +24,17 @@ def _client() -> httpclient.InferenceServerClient:
     return httpclient.InferenceServerClient(
         url=f"{TRITON_HOST}:{TRITON_PORT}",
         verbose=False,
+        ssl=TRITON_SSL,
     )
+
+
+def _cf_access_headers() -> dict[str, str] | None:
+    if not CF_ACCESS_CLIENT_ID or not CF_ACCESS_CLIENT_SECRET:
+        return None
+    return {
+        "CF-Access-Client-Id": CF_ACCESS_CLIENT_ID,
+        "CF-Access-Client-Secret": CF_ACCESS_CLIENT_SECRET,
+    }
 
 
 def _bytes_input(name: str, data: bytes) -> httpclient.InferInput:
@@ -42,7 +55,12 @@ async def _coca_infer(data: bytes, mode: str) -> tuple[np.ndarray, str]:
         httpclient.InferRequestedOutput("embedding"),
         httpclient.InferRequestedOutput("caption"),
     ]
-    result = client.infer(model_name="coca", inputs=inputs, outputs=outputs)
+    result = client.infer(
+        model_name="coca",
+        inputs=inputs,
+        outputs=outputs,
+        headers=_cf_access_headers(),
+    )
     embedding_arr = result.as_numpy("embedding")
     caption_arr = result.as_numpy("caption")
     if embedding_arr is None or caption_arr is None:

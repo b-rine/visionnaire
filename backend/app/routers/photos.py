@@ -104,7 +104,8 @@ async def upload_photo(
 
 
 @router.post("/photos/search")
-async def search_photos_endpoint(body: SearchRequest):
+@limiter.limit("20/minute")
+async def search_photos_endpoint(request: Request, body: SearchRequest):
     if body.mode == "keyword":
         records = await search_photos_keyword(body.query, top_k=10)
         return [
