@@ -36,6 +36,16 @@ lint:
     - trufflehog@3.95.6
     - txtpbfmt@0.0.0-20230412060525-fa9f017c0ded
     - yamllint@1.38.0
+  definitions:
+    - name: osv-scanner
+      commands:
+        - name: scan
+          # Override to use the v2 subcommand format so --no-resolve is available.
+          # --no-resolve disables the transitivedependency/requirements RPC that
+          # fails for recently-released packages. Coverage is preserved because
+          # pip-compile already lists all transitive deps explicitly in
+          # requirements.txt, so osv-scanner checks each pinned package directly.
+          run: osv-scanner scan source --lockfile=${target} --format json --no-resolve
   ignore:
     # pytest's `assert` is the idiomatic assertion mechanism (it relies on
     # assertion rewriting for readable failure messages) — bandit's "asserts
