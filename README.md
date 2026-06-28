@@ -16,7 +16,7 @@ An ML-powered photo app for image captioning and semantic search, built with CoC
 | -------------- | --------------------------------------- |
 | Inference      | Triton Inference Server (CoCa ViT-L-14) |
 | Vector store   | Qdrant                                  |
-| Object storage | Cloudflare R2                           |
+| Object storage | Local disk (default) or Cloudflare R2   |
 | Backend        | FastAPI                                 |
 | Frontend       | React + Vite (served via nginx)         |
 
@@ -87,7 +87,7 @@ Frontend dev server runs at <http://localhost:5173> and proxies API calls to `lo
 
 ## Testing
 
-**Backend** (Triton, Qdrant, and R2 are mocked — no Docker or GPU needed):
+**Backend** (Triton, Qdrant, and the storage backend are mocked — no Docker or GPU needed):
 
 ```bash
 cd backend
