@@ -49,23 +49,30 @@ Copy `.env.example` to `.env`. Docker Compose reads it automatically.
 
 **Required:**
 
-| Variable               | Description                                                                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------------- |
-| `R2_ACCOUNT_ID`        | Cloudflare R2 account ID                                                                            |
-| `R2_ACCESS_KEY_ID`     | R2 access key ID                                                                                    |
-| `R2_SECRET_ACCESS_KEY` | R2 secret access key                                                                                |
-| `R2_BUCKET_NAME`       | R2 bucket name for photo storage                                                                    |
-| `API_KEY`              | Shared key for write endpoints (upload, delete, caption edit). Generate with `openssl rand -hex 24` |
+| Variable          | Default | Description                                                                                         |
+| ----------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `STORAGE_BACKEND` | `local` | Storage backend: `local` (photos on disk, no signup needed) or `r2` (Cloudflare R2).                |
+| `API_KEY`         | —       | Shared key for write endpoints (upload, delete, caption edit). Generate with `openssl rand -hex 24` |
 
-**Optional (production / remote Triton setups):**
+**Required when `STORAGE_BACKEND=r2`:**
 
-| Variable                  | Default  | Description                                                                              |
-| ------------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `ALLOWED_ORIGINS`         | `*`      | Comma-separated CORS allowed origins. Set to your public domain in production.           |
-| `TRITON_HOST`             | `triton` | Triton hostname. Override when reaching Triton remotely (e.g. over a Cloudflare Tunnel). |
-| `TRITON_SSL`              | `false`  | Set to `true` when connecting to Triton over HTTPS.                                      |
-| `CF_ACCESS_CLIENT_ID`     | —        | Cloudflare Access service token client ID for Triton tunnel auth.                        |
-| `CF_ACCESS_CLIENT_SECRET` | —        | Cloudflare Access service token secret.                                                  |
+| Variable               | Description                      |
+| ---------------------- | -------------------------------- |
+| `R2_ACCOUNT_ID`        | Cloudflare R2 account ID         |
+| `R2_ACCESS_KEY_ID`     | R2 access key ID                 |
+| `R2_SECRET_ACCESS_KEY` | R2 secret access key             |
+| `R2_BUCKET_NAME`       | R2 bucket name for photo storage |
+
+**Optional:**
+
+| Variable                  | Default    | Description                                                                               |
+| ------------------------- | ---------- | ----------------------------------------------------------------------------------------- |
+| `LOCAL_PHOTOS_DIR`        | `./photos` | Photo storage directory (local backend only). Docker Compose sets this to `/data/photos`. |
+| `ALLOWED_ORIGINS`         | `*`        | Comma-separated CORS allowed origins. Set to your public domain in production.            |
+| `TRITON_HOST`             | `triton`   | Triton hostname. Override when reaching Triton remotely (e.g. over a Cloudflare Tunnel).  |
+| `TRITON_SSL`              | `false`    | Set to `true` when connecting to Triton over HTTPS.                                       |
+| `CF_ACCESS_CLIENT_ID`     | —          | Cloudflare Access service token client ID for Triton tunnel auth.                         |
+| `CF_ACCESS_CLIENT_SECRET` | —          | Cloudflare Access service token secret.                                                   |
 
 ## Development
 
