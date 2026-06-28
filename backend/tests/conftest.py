@@ -2,6 +2,7 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.responses import RedirectResponse
 from starlette.testclient import TestClient
 
 os.environ.setdefault("API_KEY", "test-api-key")
@@ -50,17 +51,19 @@ def client():
             return_value=None,
         ),
         patch(
-            "app.routers.photos.object_exists_in_r2",
+            "app.routers.photos.photo_exists",
             new_callable=AsyncMock,
             return_value=False,
         ),
-        patch("app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock),
+        patch("app.routers.photos.upload_photo", new_callable=AsyncMock),
         patch(
-            "app.routers.photos.get_r2_presigned_url",
+            "app.routers.photos.get_photo_response",
             new_callable=AsyncMock,
-            return_value="https://r2.example.com/photo",
+            return_value=RedirectResponse(
+                "https://r2.example.com/photo", status_code=302
+            ),
         ),
-        patch("app.routers.photos.delete_photo_from_r2", new_callable=AsyncMock),
+        patch("app.routers.photos.delete_photo_from_storage", new_callable=AsyncMock),
         patch("app.routers.photos.delete_photo", new_callable=AsyncMock),
         patch(
             "app.routers.photos.get_total_storage_bytes",

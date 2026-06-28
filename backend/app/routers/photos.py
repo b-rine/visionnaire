@@ -4,11 +4,13 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from app.auth import limiter, require_api_key
-from app.services.r2_client import (
-    delete_photo_from_r2,
-    get_r2_presigned_url,
-    object_exists_in_r2,
-    upload_photo_to_r2,
+from app.services.storage import delete_photo as delete_photo_from_storage
+from app.services.storage import (
+    photo_exists,
+)
+from app.services.storage import photo_response as get_photo_response
+from app.services.storage import (
+    upload_photo,
 )
 from app.services.triton_client import caption_image, encode_image, encode_text
 from app.services.vector_store import (
@@ -24,7 +26,6 @@ from app.services.vector_store import (
     upsert_photo,
 )
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 STORAGE_LIMIT_BYTES = 1 * 1024**3  # 1 GiB
@@ -61,7 +62,7 @@ def _effective_caption(payload: dict) -> str:
 
 @router.post("/photos/upload")
 @limiter.limit("10/minute")
-async def upload_photo(
+async def upload_photo_endpoint(
     request: Request,
     file: UploadFile = File(...),
     _: None = Depends(require_api_key),
@@ -72,7 +73,7 @@ async def upload_photo(
     image_bytes = await file.read()
     photo_id = _photo_id(image_bytes)
 
-    if await object_exists_in_r2(photo_id):
+    if await photo_exists(photo_id):
         existing = await get_photo_record(photo_id)
         return {
             "id": photo_id,
@@ -88,7 +89,7 @@ async def upload_photo(
             detail="Storage limit reached (1 GB). Delete some photos first.",
         )
 
-    await upload_photo_to_r2(photo_id, image_bytes, file.content_type or "image/jpeg")
+    await upload_photo(photo_id, image_bytes, file.content_type or "image/jpeg")
     embedding = await encode_image(image_bytes)
     caption = await caption_image(image_bytes)
     await upsert_photo(
@@ -164,10 +165,9 @@ async def storage_stats():
 
 @router.get("/photos/{photo_id}")
 async def get_photo(photo_id: str):
-    if not await object_exists_in_r2(photo_id):
+    if not await photo_exists(photo_id):
         raise HTTPException(status_code=404, detail="Photo not found")
-    url = await get_r2_presigned_url(photo_id)
-    return RedirectResponse(url, status_code=302)
+    return await get_photo_response(photo_id)
 
 
 @router.delete("/photos/{photo_id}")
@@ -177,8 +177,8 @@ async def delete_photo_endpoint(
     photo_id: str,
     _: None = Depends(require_api_key),
 ):
-    if not await object_exists_in_r2(photo_id):
+    if not await photo_exists(photo_id):
         raise HTTPException(status_code=404, detail="Photo not found")
-    await delete_photo_from_r2(photo_id)
+    await delete_photo_from_storage(photo_id)
     await delete_photo(photo_id)
     return {"deleted": photo_id}

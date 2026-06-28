@@ -38,7 +38,7 @@ def test_upload_with_correct_api_key_succeeds(client):
 
 def test_delete_without_api_key_is_rejected(client):
     with patch(
-        "app.routers.photos.object_exists_in_r2",
+        "app.routers.photos.photo_exists",
         new_callable=AsyncMock,
         return_value=True,
     ):

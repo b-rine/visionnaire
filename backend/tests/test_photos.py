@@ -45,29 +45,29 @@ def test_upload_rejects_non_image(client):
     assert response.status_code == 400
 
 
-def test_upload_calls_r2(client):
+def test_upload_calls_storage(client):
     with patch(
-        "app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock
-    ) as mock_r2:
+        "app.routers.photos.upload_photo", new_callable=AsyncMock
+    ) as mock_storage:
         client.post(
             "/api/photos/upload",
             files={"file": ("photo.jpg", _jpeg_bytes(), "image/jpeg")},
         )
-    mock_r2.assert_called_once()
-    assert mock_r2.call_args[0][0]  # photo_id was passed
+    mock_storage.assert_called_once()
+    assert mock_storage.call_args[0][0]  # photo_id was passed
 
 
-def test_upload_deduplicates_via_r2_head(client):
+def test_upload_deduplicates(client):
     jpeg = _jpeg_bytes()
     with (
         patch(
-            "app.routers.photos.object_exists_in_r2",
+            "app.routers.photos.photo_exists",
             new_callable=AsyncMock,
             return_value=True,
         ),
         patch(
-            "app.routers.photos.upload_photo_to_r2", new_callable=AsyncMock
-        ) as mock_r2,
+            "app.routers.photos.upload_photo", new_callable=AsyncMock
+        ) as mock_storage,
     ):
         r1 = client.post(
             "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
@@ -76,14 +76,14 @@ def test_upload_deduplicates_via_r2_head(client):
             "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
         )
     assert r1.json()["id"] == r2.json()["id"]
-    mock_r2.assert_not_called()
+    mock_storage.assert_not_called()
 
 
 def test_upload_dedup_returns_stored_caption(client):
     jpeg = _jpeg_bytes()
     with (
         patch(
-            "app.routers.photos.object_exists_in_r2",
+            "app.routers.photos.photo_exists",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -283,7 +283,7 @@ def test_storage_stats(client):
 
 def test_get_photo_redirects(client):
     with patch(
-        "app.routers.photos.object_exists_in_r2",
+        "app.routers.photos.photo_exists",
         new_callable=AsyncMock,
         return_value=True,
     ):
@@ -299,7 +299,7 @@ def test_get_photo_not_found(client):
 
 def test_delete_photo_success(client):
     with patch(
-        "app.routers.photos.object_exists_in_r2",
+        "app.routers.photos.photo_exists",
         new_callable=AsyncMock,
         return_value=True,
     ):

@@ -27,12 +27,16 @@ services:
       - CF_ACCESS_CLIENT_SECRET=${CF_ACCESS_CLIENT_SECRET}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - STORAGE_BACKEND=${STORAGE_BACKEND:-r2}
+      - LOCAL_PHOTOS_DIR=/data/photos
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-}
       - API_KEY=${API_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    volumes:
+      - photos_data:/data/photos
     ports:
       - 8080:8000
     depends_on:
@@ -49,3 +53,4 @@ services:
 
 volumes:
   qdrant_data:
+  photos_data:
