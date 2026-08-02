@@ -79,6 +79,14 @@ services:
       backend:
         condition: service_healthy
 
+  cloudflared:
+    image: cloudflare/cloudflared:2026.6.1
+    command: tunnel --no-autoupdate run --token ${TRITON_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      triton:
+        condition: service_healthy
+
 volumes:
   hf_cache:
   qdrant_data:
