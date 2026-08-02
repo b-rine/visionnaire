@@ -2,7 +2,7 @@
 
 ## Architecture
 
-```
+```text
 [browser] → CF edge → [Oracle cloudflared] → frontend:8080 → backend:8000 → qdrant:6333
                                                                     ↓
 [Oracle backend] → CF edge → CF Access policy → [Home cloudflared] → triton:8000
