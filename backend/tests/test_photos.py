@@ -105,6 +105,38 @@ def test_upload_dedup_returns_stored_caption(client):
     assert response.json()["caption"] == "a dog on a beach"
 
 
+def test_upload_reindexes_when_storage_exists_but_qdrant_point_missing(client):
+    """Covers storage/vector-store drift: e.g. a shared storage backend
+    (same R2 bucket) reused across environments with separate, independent
+    Qdrant collections. photo_exists() can be True while get_photo_record()
+    is None for the same photo_id — the upload must self-heal by indexing
+    into Qdrant instead of silently returning a blank caption."""
+    jpeg = _jpeg_bytes()
+    with (
+        patch(
+            "app.routers.photos.photo_exists",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            "app.routers.photos.get_photo_record",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "app.routers.photos.upload_photo", new_callable=AsyncMock
+        ) as mock_storage,
+        patch("app.routers.photos.upsert_photo", new_callable=AsyncMock) as mock_upsert,
+    ):
+        response = client.post(
+            "/api/photos/upload", files={"file": ("img.jpg", jpeg, "image/jpeg")}
+        )
+    assert response.status_code == 200
+    assert response.json()["caption"] == "a cat on a mat"
+    mock_storage.assert_not_called()
+    mock_upsert.assert_called_once()
+
+
 def test_upload_rejects_over_storage_limit(client):
     one_gib = 1 * 1024**3
     with patch(

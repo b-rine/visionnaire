@@ -73,13 +73,19 @@ async def upload_photo_endpoint(
     image_bytes = await file.read()
     photo_id = _photo_id(image_bytes)
 
-    if await photo_exists(photo_id):
+    already_stored = await photo_exists(photo_id)
+    if already_stored:
         existing = await get_photo_record(photo_id)
-        return {
-            "id": photo_id,
-            "filename": file.filename,
-            "caption": _effective_caption(existing) if existing else "",
-        }
+        if existing:
+            return {
+                "id": photo_id,
+                "filename": file.filename,
+                "caption": _effective_caption(existing),
+            }
+        # Storage has the object but Qdrant has no matching point (e.g. a
+        # storage backend shared across environments with independent
+        # Qdrant collections) — fall through and index it instead of
+        # silently returning a blank caption.
 
     file_size = len(image_bytes)
     used = await get_total_storage_bytes()
@@ -89,7 +95,8 @@ async def upload_photo_endpoint(
             detail="Storage limit reached (1 GB). Delete some photos first.",
         )
 
-    await upload_photo(photo_id, image_bytes, file.content_type or "image/jpeg")
+    if not already_stored:
+        await upload_photo(photo_id, image_bytes, file.content_type or "image/jpeg")
     embedding = await encode_image(image_bytes)
     caption = await caption_image(image_bytes)
     await upsert_photo(
