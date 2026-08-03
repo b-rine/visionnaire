@@ -360,3 +360,37 @@ section {
 .caption-edit-actions button:hover {
   background: #357abd;
 }
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feature-card h3 {
+  margin: 0;
+}
+
+.feature-cta {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: #4a90e2;
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.feature-cta:hover {
+  background: #357abd;
+}
