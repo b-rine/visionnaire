@@ -16,7 +16,10 @@ export default function App() {
   return (
     <BrowserRouter>
       {showKeyPrompt && (
-        <ApiKeyPrompt onSaved={() => setShowKeyPrompt(false)} />
+        <ApiKeyPrompt
+          onSaved={() => setShowKeyPrompt(false)}
+          onClose={() => setShowKeyPrompt(false)}
+        />
       )}
       <nav>
         <Link to="/">Caption</Link>

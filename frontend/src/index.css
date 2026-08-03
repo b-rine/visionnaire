@@ -170,6 +170,23 @@ h1 {
   background: rgba(200, 50, 50, 0.85);
 }
 
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .score-badge {
   position: absolute;
   bottom: 4px;
