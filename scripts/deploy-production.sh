@@ -88,7 +88,12 @@ backup_qdrant_storage() {
   local image="$1"
   local container_id
   local backup_dir="${PWD}/.qdrant-backups"
-  local backup_name="qdrant-before-v1.18.3-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+  local backup_name
+
+  if ! backup_name="qdrant-before-v1.18.3-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"; then
+    echo "Cannot generate a timestamp for the Qdrant backup." >&2
+    return 1
+  fi
 
   container_id="$(docker compose -f "${compose_file}" ps -aq qdrant)"
   if [[ -z "${container_id}" ]]; then
@@ -97,13 +102,14 @@ backup_qdrant_storage() {
   fi
 
   docker compose -f "${compose_file}" stop qdrant
-  mkdir -p "${backup_dir}"
+  install -d -m 0700 "${backup_dir}"
   docker run --rm \
     --volumes-from "${container_id}" \
     --volume "${backup_dir}:/backup" \
     --entrypoint tar \
     "${image}" \
     -C /qdrant/storage -czf "/backup/${backup_name}" .
+  chmod 0600 "${backup_dir}/${backup_name}"
   docker run --rm \
     --volume "${backup_dir}:/backup:ro" \
     --entrypoint tar \
