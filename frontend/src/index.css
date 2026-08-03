@@ -392,6 +392,7 @@ section {
 
 .feature-cta {
   align-self: flex-start;
+  margin-top: auto;
   padding: 8px 16px;
   background: #4a90e2;
   color: #fff;
