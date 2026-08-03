@@ -69,7 +69,9 @@ updates:
     open-pull-requests-limit: 5
 
   - package-ecosystem: docker-compose
-    directory: /
+    directories:
+      - /
+      - /monitoring
     schedule:
       interval: weekly
       day: monday

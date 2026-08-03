@@ -43,8 +43,19 @@ verify_public_health() {
 
 rollback() {
   echo "Deployment verification failed; restoring previous images." >&2
+
+  if ! docker image inspect \
+    "${backend_image}:rollback" \
+    "${frontend_image}:rollback" >/dev/null 2>&1; then
+    echo "No complete previous deployment is available for rollback." >&2
+    return 1
+  fi
+
   IMAGE_TAG=rollback docker compose -f "${compose_file}" up -d --remove-orphans
-  verify_public_health
+  if ! verify_public_health; then
+    echo "The restored deployment also failed health verification." >&2
+    return 1
+  fi
 }
 
 tag_current_for_rollback backend "${backend_image}"
@@ -55,7 +66,9 @@ docker compose -f "${compose_file}" pull backend frontend
 docker compose -f "${compose_file}" up -d --remove-orphans
 
 if ! verify_public_health; then
-  rollback
+  if ! rollback; then
+    echo "Automatic rollback failed; manual recovery is required." >&2
+  fi
   exit 1
 fi
 

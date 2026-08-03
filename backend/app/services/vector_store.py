@@ -25,7 +25,7 @@ VECTOR_SIZE = 768
 
 
 async def qdrant_ready() -> bool:
-    return await to_thread(lambda: bool(_client().get_collections()))
+    return await to_thread(lambda: bool(_client().get_collections().collections))
 
 
 def _client() -> QdrantClient:
