@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "09:00"
+      time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
       npm-minor-and-patch:
@@ -22,7 +22,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "09:00"
+      time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
       pip-minor-and-patch:
@@ -38,7 +38,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "09:00"
+      time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
       actions-minor-and-patch:
@@ -57,7 +57,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "09:00"
+      time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
       docker-minor-and-patch:
@@ -73,7 +73,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "09:00"
+      time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
       compose-minor-and-patch:
