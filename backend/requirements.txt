@@ -106,7 +106,7 @@ numpy==1.26.4
     #   tritonclient
 packaging==26.2
     # via limits
-pillow==12.2.0
+pillow==12.3.0
     # via -r requirements.in
 portalocker==2.10.1
     # via qdrant-client
