@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tritonserver:23.09-py3
+FROM nvcr.io/nvidia/tritonserver:26.07-py3
 
 # Install PyTorch with CUDA 11.8 first so open_clip_torch doesn't override it,
 # then the rest, in one layer (still two pip calls to preserve install order).
