@@ -130,7 +130,7 @@ export default function Search() {
                       ? "..."
                       : pendingDelete === r.id
                         ? "Confirm?"
-                        : "✕"}
+                        : "Del"}
                   </button>
                 </div>
               ))}

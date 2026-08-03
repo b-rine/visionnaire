@@ -43,6 +43,22 @@ describe("Search page", () => {
     });
   });
 
+  it("shows a Del label on the delete button, not an X", async () => {
+    mockPost.mockResolvedValue({
+      data: [{ id: "photo-1", filename: "sunset.jpg", score: 0.95 }],
+    });
+    render(<Search />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText(/sunset over mountains/i),
+      "sunset",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    expect(screen.getByTitle("Delete photo")).toHaveTextContent("Del");
+  });
+
   it("shows no-results message when search returns empty", async () => {
     mockPost.mockResolvedValue({ data: [] });
     render(<Search />);

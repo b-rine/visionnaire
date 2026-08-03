@@ -36,6 +36,26 @@ describe("Gallery page", () => {
     });
   });
 
+  it("shows a Del label on the delete button, not an X", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        photos: [
+          {
+            id: "photo-1",
+            filename: "sunset.jpg",
+            uploaded_at: "",
+            file_size: 1,
+          },
+        ],
+        next_offset: null,
+      },
+    });
+    render(<Gallery />);
+
+    await waitFor(() => screen.getByAltText("sunset.jpg"));
+    expect(screen.getByTitle("Delete photo")).toHaveTextContent("Del");
+  });
+
   it("shows empty state when no photos are indexed", async () => {
     mockGet.mockResolvedValue({ data: { photos: [], next_offset: null } });
     render(<Gallery />);
