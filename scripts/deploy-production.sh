@@ -9,6 +9,7 @@ set -euo pipefail
 compose_file="docker-compose.prod.yml"
 backend_image="ghcr.io/${GHCR_USER}/visionnaire-backend"
 frontend_image="ghcr.io/${GHCR_USER}/visionnaire-frontend"
+qdrant_backup=""
 
 cd "$(dirname "$0")/.."
 
@@ -68,6 +69,7 @@ prepare_qdrant() {
     return 1
   fi
 
+  backup_qdrant_storage "${target_image}"
   echo "Detected Qdrant v1.9 storage; applying required sequential migrations."
   for image in "${migration_images[@]}"; do
     echo "Migrating Qdrant storage with ${image}."
@@ -78,6 +80,44 @@ prepare_qdrant() {
   done
 }
 
+backup_qdrant_storage() {
+  local image="$1"
+  local container_id
+  local backup_dir="${PWD}/.qdrant-backups"
+  local backup_name="qdrant-before-v1.18.3-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+
+  container_id="$(docker compose -f "${compose_file}" ps -aq qdrant)"
+  if [[ -z "${container_id}" ]]; then
+    echo "Cannot back up Qdrant storage without its container." >&2
+    return 1
+  fi
+
+  docker compose -f "${compose_file}" stop qdrant
+  mkdir -p "${backup_dir}"
+  docker run --rm \
+    --volumes-from "${container_id}" \
+    --volume "${backup_dir}:/backup" \
+    --entrypoint tar \
+    "${image}" \
+    -C /qdrant/storage -czf "/backup/${backup_name}" .
+  docker run --rm \
+    --volume "${backup_dir}:/backup:ro" \
+    --entrypoint tar \
+    "${image}" \
+    -tzf "/backup/${backup_name}" >/dev/null
+
+  qdrant_backup="${backup_dir}/${backup_name}"
+  echo "Verified Qdrant storage backup at ${qdrant_backup}."
+}
+
+remove_qdrant_backup() {
+  if [[ -n "${qdrant_backup}" ]]; then
+    rm -f "${qdrant_backup}"
+    rmdir "$(dirname "${qdrant_backup}")" 2>/dev/null || true
+    echo "Removed temporary Qdrant migration backup after successful verification."
+  fi
+}
+
 start_qdrant() {
   local image="$1"
   local container_id
@@ -85,9 +125,14 @@ start_qdrant() {
 
   # Recreate Qdrant separately so Compose does not immediately reject a stale
   # unhealthy state while evaluating the backend's service_healthy dependency.
-  QDRANT_IMAGE="${image}" docker compose -f "${compose_file}" \
-    up -d --no-deps --force-recreate qdrant
+  if ! QDRANT_IMAGE="${image}" docker compose -f "${compose_file}" \
+    up -d --no-deps --force-recreate qdrant; then
+    return 1
+  fi
   container_id="$(docker compose -f "${compose_file}" ps -q qdrant)"
+  if [[ -z "${container_id}" ]]; then
+    return 1
+  fi
 
   for _ in {1..36}; do
     health="$(docker inspect --format '{{.State.Health.Status}}' "${container_id}")"
@@ -145,5 +190,6 @@ if ! verify_public_health; then
   exit 1
 fi
 
+remove_qdrant_backup
 printf '%s\n' "${IMAGE_TAG}" >.deployed-image-tag
 echo "Deployment ${IMAGE_TAG} verified successfully."
