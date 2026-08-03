@@ -48,6 +48,19 @@ test("shows a read-only preview with working navigation", async ({ page }) => {
   await expect(page.getByTitle("Delete photo")).toHaveCount(0);
 });
 
+test("aligns the home feature actions", async ({ page }) => {
+  await page.goto("/");
+
+  const actionTops = await page
+    .locator(".feature-cta")
+    .evaluateAll((actions) =>
+      actions.map((action) => Math.round(action.getBoundingClientRect().top)),
+    );
+
+  expect(actionTops).toHaveLength(3);
+  expect(new Set(actionTops).size).toBe(1);
+});
+
 test("keeps search usable without mutation controls", async ({ page }) => {
   await page.goto("/search");
 
