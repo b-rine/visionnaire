@@ -24,7 +24,7 @@ services:
       start_period: 90s
 
   qdrant:
-    image: qdrant/qdrant:v1.9.0
+    image: qdrant/qdrant:v1.18.3
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
@@ -80,7 +80,7 @@ services:
         condition: service_healthy
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.6.1
+    image: cloudflare/cloudflared:2026.7.3
     command: tunnel --no-autoupdate run --token ${TRITON_TUNNEL_TOKEN}
     restart: unless-stopped
     depends_on:
