@@ -77,7 +77,11 @@ prepare_qdrant() {
       report_qdrant_failure
       return 1
     fi
+    # Give startup migrations time to flush before replacing the container
+    # with the next consecutive minor release.
+    sleep 5
   done
+  return 0
 }
 
 backup_qdrant_storage() {
@@ -137,9 +141,6 @@ start_qdrant() {
   for _ in {1..36}; do
     health="$(docker inspect --format '{{.State.Health.Status}}' "${container_id}")"
     if [[ "${health}" == "healthy" ]]; then
-      # Give startup migrations time to flush before replacing the container
-      # with the next consecutive minor release.
-      sleep 5
       return 0
     fi
 
