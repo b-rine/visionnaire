@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:v1.9.0
+    image: qdrant/qdrant:v1.18.3
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
