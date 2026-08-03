@@ -97,7 +97,7 @@ export default function Gallery() {
                     ? "..."
                     : pendingDelete === p.id
                       ? "Confirm?"
-                      : "✕"}
+                      : "Del"}
                 </button>
               </div>
             ))}
