@@ -4,6 +4,7 @@ import { onUnauthorized } from "./apiKey";
 import ApiKeyPrompt from "./components/ApiKeyPrompt";
 import Caption from "./pages/Caption";
 import Gallery from "./pages/Gallery";
+import Home from "./pages/Home";
 import Search from "./pages/Search";
 
 export default function App() {
@@ -22,13 +23,15 @@ export default function App() {
         />
       )}
       <nav>
-        <Link to="/">Caption</Link>
+        <Link to="/">Home</Link>
+        <Link to="/caption">Caption</Link>
         <Link to="/search">Search</Link>
         <Link to="/gallery">Gallery</Link>
       </nav>
       <main>
         <Routes>
-          <Route path="/" element={<Caption />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/caption" element={<Caption />} />
           <Route path="/search" element={<Search />} />
           <Route path="/gallery" element={<Gallery />} />
         </Routes>
