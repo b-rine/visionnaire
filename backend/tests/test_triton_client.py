@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -83,3 +84,33 @@ def test_coca_infer_passes_no_headers_when_cf_access_unset(monkeypatch):
 
     _, kwargs = mock_client.infer.call_args
     assert kwargs["headers"] is None
+
+
+def test_client_passes_ssl_context_factory_and_sni_when_ssl_enabled(monkeypatch):
+    """geventhttpclient's SSLConnectionPool only sets SNI (server_hostname)
+    and uses a modern SSLContext when both ssl_options and a non-None
+    ssl_context_factory are passed — otherwise it falls back to a legacy
+    gevent.ssl.wrap_socket() call with a hardcoded cipher list and no SNI,
+    which Cloudflare's edge rejects with a TLS handshake failure (confirmed
+    live against the private Triton tunnel)."""
+    monkeypatch.setattr(tc, "TRITON_SSL", True)
+
+    with patch.object(tc.httpclient, "InferenceServerClient") as mock_ctor:
+        tc._client()
+
+    _, kwargs = mock_ctor.call_args
+    assert kwargs["ssl"] is True
+    assert kwargs["ssl_context_factory"] is ssl.create_default_context
+    assert kwargs["ssl_options"] == {}
+
+
+def test_client_omits_ssl_context_factory_when_ssl_disabled(monkeypatch):
+    monkeypatch.setattr(tc, "TRITON_SSL", False)
+
+    with patch.object(tc.httpclient, "InferenceServerClient") as mock_ctor:
+        tc._client()
+
+    _, kwargs = mock_ctor.call_args
+    assert kwargs["ssl"] is False
+    assert kwargs.get("ssl_context_factory") is None
+    assert kwargs.get("ssl_options") is None

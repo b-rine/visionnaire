@@ -1,5 +1,6 @@
 import os
 import re
+import ssl
 
 import numpy as np
 import tritonclient.http as httpclient
@@ -21,10 +22,22 @@ def _clean_caption(raw: str) -> str:
 
 
 def _client() -> httpclient.InferenceServerClient:
+    ssl_kwargs = {}
+    if TRITON_SSL:
+        # geventhttpclient's SSLConnectionPool only sends SNI (server_hostname)
+        # and uses a modern SSLContext when both ssl_options and a non-None
+        # ssl_context_factory are passed — otherwise it falls back to a legacy
+        # gevent.ssl.wrap_socket() call with a hardcoded cipher list and no
+        # SNI, which Cloudflare's edge rejects with a TLS handshake failure.
+        ssl_kwargs = {
+            "ssl_options": {},
+            "ssl_context_factory": ssl.create_default_context,
+        }
     return httpclient.InferenceServerClient(
         url=f"{TRITON_HOST}:{TRITON_PORT}",
         verbose=False,
         ssl=TRITON_SSL,
+        **ssl_kwargs,
     )
 
 
