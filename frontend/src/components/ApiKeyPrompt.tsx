@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { setApiKey } from "../apiKey";
 
 interface ApiKeyPromptProps {
   onSaved: () => void;
+  onClose: () => void;
 }
 
-export default function ApiKeyPrompt({ onSaved }: ApiKeyPromptProps) {
+export default function ApiKeyPrompt({ onSaved, onClose }: ApiKeyPromptProps) {
   const [key, setKey] = useState("");
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [onClose]);
 
   function handleSave() {
     if (!key.trim()) return;
@@ -15,8 +27,20 @@ export default function ApiKeyPrompt({ onSaved }: ApiKeyPromptProps) {
   }
 
   return (
-    <div className="lightbox-backdrop">
-      <div className="lightbox-content api-key-prompt">
+    <div className="lightbox-backdrop" onClick={onClose}>
+      <div
+        className="lightbox-content api-key-prompt"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="close-btn"
+          onClick={onClose}
+          title="Close"
+          aria-label="Close API key prompt"
+        >
+          ✕
+        </button>
         <p>An API key is required to upload, edit, or delete photos.</p>
         <input
           type="password"

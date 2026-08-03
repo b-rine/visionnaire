@@ -1,6 +1,7 @@
 import os
 import re
 import ssl
+from asyncio import to_thread
 
 import numpy as np
 import tritonclient.http as httpclient
@@ -21,7 +22,10 @@ def _clean_caption(raw: str) -> str:
     return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", text)
 
 
-def _client() -> httpclient.InferenceServerClient:
+def _client(
+    connection_timeout: float = 60.0,
+    network_timeout: float = 60.0,
+) -> httpclient.InferenceServerClient:
     ssl_kwargs = {}
     if TRITON_SSL:
         # geventhttpclient's SSLConnectionPool only sends SNI (server_hostname)
@@ -37,6 +41,8 @@ def _client() -> httpclient.InferenceServerClient:
         url=f"{TRITON_HOST}:{TRITON_PORT}",
         verbose=False,
         ssl=TRITON_SSL,
+        connection_timeout=connection_timeout,
+        network_timeout=network_timeout,
         **ssl_kwargs,
     )
 
@@ -48,6 +54,18 @@ def _cf_access_headers() -> dict[str, str] | None:
         "CF-Access-Client-Id": CF_ACCESS_CLIENT_ID,
         "CF-Access-Client-Secret": CF_ACCESS_CLIENT_SECRET,
     }
+
+
+async def triton_ready() -> bool:
+    client = _client(connection_timeout=5.0, network_timeout=5.0)
+    headers = _cf_access_headers()
+    server_ready, model_ready = await to_thread(
+        lambda: (
+            client.is_server_ready(headers=headers),
+            client.is_model_ready("coca", headers=headers),
+        )
+    )
+    return server_ready and model_ready
 
 
 def _bytes_input(name: str, data: bytes) -> httpclient.InferInput:

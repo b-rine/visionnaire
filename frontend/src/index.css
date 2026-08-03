@@ -31,6 +31,14 @@ nav a:hover {
   color: #fff;
 }
 
+.preview-banner {
+  margin: 0;
+  padding: 8px 16px;
+  color: #3d2d00;
+  text-align: center;
+  background: #ffd866;
+}
+
 main {
   max-width: 900px;
   margin: 40px auto;
@@ -170,6 +178,23 @@ h1 {
   background: rgba(200, 50, 50, 0.85);
 }
 
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
 .score-badge {
   position: absolute;
   bottom: 4px;
@@ -234,6 +259,7 @@ section {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-bottom: 44px;
 }
 
 .api-key-prompt {
@@ -261,7 +287,8 @@ section {
 
 .lightbox-content .delete-btn {
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
   opacity: 1;
   font-size: 13px;
@@ -340,5 +367,39 @@ section {
 }
 
 .caption-edit-actions button:hover {
+  background: #357abd;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feature-card h3 {
+  margin: 0;
+}
+
+.feature-cta {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: #4a90e2;
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.feature-cta:hover {
   background: #357abd;
 }

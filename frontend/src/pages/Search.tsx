@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useState } from "react";
 import PhotoLightbox from "../components/PhotoLightbox";
+import { isReadOnlyDeployment } from "../deployment";
 
 interface SearchResult {
   id: string;
@@ -12,6 +13,7 @@ interface SearchResult {
 type SearchMode = "semantic" | "keyword";
 
 export default function Search() {
+  const readOnly = isReadOnlyDeployment();
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<SearchMode>("semantic");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -120,18 +122,20 @@ export default function Search() {
                       {(r.score * 100).toFixed(0)}%
                     </span>
                   )}
-                  <button
-                    className="delete-btn"
-                    onClick={() => handleDelete(r.id)}
-                    disabled={deletingId === r.id}
-                    title="Delete photo"
-                  >
-                    {deletingId === r.id
-                      ? "..."
-                      : pendingDelete === r.id
-                        ? "Confirm?"
-                        : "✕"}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDelete(r.id)}
+                      disabled={deletingId === r.id}
+                      title="Delete photo"
+                    >
+                      {deletingId === r.id
+                        ? "..."
+                        : pendingDelete === r.id
+                          ? "Confirm?"
+                          : "Del"}
+                    </button>
+                  )}
                 </div>
               ))}
           </div>
@@ -152,6 +156,7 @@ export default function Search() {
           score={results.find((r) => r.id === expandedId)!.score}
           pendingDelete={pendingDelete === expandedId}
           deleting={deletingId === expandedId}
+          readOnly={readOnly}
           onDelete={() => handleDelete(expandedId)}
           onClose={() => setExpandedId(null)}
           onCaptionUpdated={(caption) =>

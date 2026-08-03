@@ -8,6 +8,7 @@ interface PhotoLightboxProps {
   score?: number;
   pendingDelete: boolean;
   deleting: boolean;
+  readOnly?: boolean;
   onDelete: () => void;
   onClose: () => void;
   onCaptionUpdated?: (caption: string) => void;
@@ -20,6 +21,7 @@ export default function PhotoLightbox({
   score,
   pendingDelete,
   deleting,
+  readOnly = false,
   onDelete,
   onClose,
   onCaptionUpdated,
@@ -63,20 +65,31 @@ export default function PhotoLightbox({
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
       <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="close-btn"
+          onClick={onClose}
+          title="Close"
+          aria-label="Close photo"
+        >
+          ✕
+        </button>
         <img src={`/api/photos/${id}`} alt={filename} />
         {score !== undefined && (
           <span className="score-badge" title="Match strength">
             {(score * 100).toFixed(0)}%
           </span>
         )}
-        <button
-          className="delete-btn"
-          onClick={onDelete}
-          disabled={deleting}
-          title="Delete photo"
-        >
-          {deleting ? "..." : pendingDelete ? "Confirm?" : "✕"}
-        </button>
+        {!readOnly && (
+          <button
+            className="delete-btn"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Delete photo"
+          >
+            {deleting ? "..." : pendingDelete ? "Confirm?" : "Del"}
+          </button>
+        )}
         {editing ? (
           <div className="caption-edit">
             <textarea
@@ -97,13 +110,15 @@ export default function PhotoLightbox({
         ) : (
           <div className="caption-row">
             {caption && <p className="lightbox-caption">{caption}</p>}
-            <button
-              className="edit-caption-btn"
-              onClick={startEditing}
-              title="Edit caption"
-            >
-              ✎
-            </button>
+            {!readOnly && (
+              <button
+                className="edit-caption-btn"
+                onClick={startEditing}
+                title="Edit caption"
+              >
+                ✎
+              </button>
+            )}
           </div>
         )}
       </div>

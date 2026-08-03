@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import PhotoLightbox from "../components/PhotoLightbox";
+import { isReadOnlyDeployment } from "../deployment";
 
 interface Photo {
   id: string;
@@ -11,6 +12,7 @@ interface Photo {
 }
 
 export default function Gallery() {
+  const readOnly = isReadOnlyDeployment();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -87,18 +89,20 @@ export default function Gallery() {
                   onError={() => handleImageError(p.id)}
                   onClick={() => setExpandedId(p.id)}
                 />
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(p.id)}
-                  disabled={deletingId === p.id}
-                  title="Delete photo"
-                >
-                  {deletingId === p.id
-                    ? "..."
-                    : pendingDelete === p.id
-                      ? "Confirm?"
-                      : "✕"}
-                </button>
+                {!readOnly && (
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(p.id)}
+                    disabled={deletingId === p.id}
+                    title="Delete photo"
+                  >
+                    {deletingId === p.id
+                      ? "..."
+                      : pendingDelete === p.id
+                        ? "Confirm?"
+                        : "Del"}
+                  </button>
+                )}
               </div>
             ))}
         </div>
@@ -127,6 +131,7 @@ export default function Gallery() {
           caption={photos.find((p) => p.id === expandedId)!.caption}
           pendingDelete={pendingDelete === expandedId}
           deleting={deletingId === expandedId}
+          readOnly={readOnly}
           onDelete={() => handleDelete(expandedId)}
           onClose={() => setExpandedId(null)}
           onCaptionUpdated={(caption) =>

@@ -11,6 +11,6 @@ RUN useradd --create-home --shell /usr/sbin/nologin appuser
 USER appuser
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=6 --start-period=15s \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

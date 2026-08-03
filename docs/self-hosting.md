@@ -170,7 +170,8 @@ Push any commit to `main` (or re-run the CI workflow from the Actions tab). Watc
 
 1. **CI jobs** (`lint`, `backend`, `backend-integration`, `frontend`) — all must pass
 2. **build-push** — cross-compiles ARM64 images and pushes to GHCR
-3. **deploy** — copies `docker-compose.prod.yml` to Oracle, SSHes in, runs `docker compose pull && up -d`
+3. **deploy** — deploys images tagged with the exact commit SHA, verifies the public site and
+   dependency health, and automatically restores the previous images if verification fails
 
 After the deploy job finishes, SSH into Oracle and confirm:
 
@@ -202,13 +203,15 @@ All changes pushed to `main` auto-deploy via CI — no manual steps needed.
 then `cd ~/visionnaire && docker compose -f docker-compose.prod.yml up -d`. Or push a dummy
 commit to `main` to let CI re-run `up -d` automatically.
 
+The last successfully deployed commit is recorded in `~/visionnaire/.deployed-image-tag`.
+
 **Rolling back:** push a revert commit to `main` (CI handles it), or on Oracle directly:
 
 ```bash
 cd ~/visionnaire
 # Replace <sha> with any commit SHA from the GHCR package page
-docker compose -f docker-compose.prod.yml pull
-BACKEND_IMAGE=ghcr.io/b-rine/visionnaire-backend:<sha> \
-FRONTEND_IMAGE=ghcr.io/b-rine/visionnaire-frontend:<sha> \
-docker compose -f docker-compose.prod.yml up -d
+IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml pull backend frontend
+IMAGE_TAG=<sha> docker compose -f docker-compose.prod.yml up -d --remove-orphans
 ```
+
+For independent uptime alerts, follow [the Uptime Kuma setup](monitoring.md).

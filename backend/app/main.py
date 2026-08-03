@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from app.auth import limiter
 from app.logging_utils import configure_logging
-from app.routers import photos
+from app.routers import health, photos
 from app.services.vector_store import init_collection
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,3 +36,4 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(photos.router, prefix="/api")
+app.include_router(health.router, prefix="/api")

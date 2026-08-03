@@ -108,6 +108,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -121,12 +123,55 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npx vitest run --coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@04b047e8bb82a0c002c8312c1c880fbc6a999d45 # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./frontend/coverage/lcov.info
+          fail_ci_if_error: true
+
+  frontend-e2e:
+    name: Frontend E2E (Playwright)
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
 
   build-push:
     name: Build & push images (ARM64)
-    needs: [lint, backend, backend-integration, frontend]
+    needs: [lint, backend, backend-integration, frontend, frontend-e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -182,13 +227,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Copy docker-compose.prod.yml to Oracle
+      - name: Copy deployment files to Oracle
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.ORACLE_SSH_HOST }}
           username: ${{ secrets.ORACLE_SSH_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
-          source: docker-compose.prod.yml
+          source: docker-compose.prod.yml,scripts/deploy-production.sh
           target: /home/${{ secrets.ORACLE_SSH_USER }}/visionnaire
 
       - name: Deploy on Oracle
@@ -196,15 +241,14 @@ jobs:
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           GHCR_USER: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ github.sha }}
+          PUBLIC_URL: https://visionnaire.nguyenbrian.dev
         with:
           host: ${{ secrets.ORACLE_SSH_HOST }}
           username: ${{ secrets.ORACLE_SSH_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
-          envs: GHCR_PAT,GHCR_USER
+          envs: GHCR_PAT,GHCR_USER,IMAGE_TAG,PUBLIC_URL
           script: |
             set -euo pipefail
-            echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             cd "/home/$USER/visionnaire"
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            docker logout ghcr.io
+            bash scripts/deploy-production.sh

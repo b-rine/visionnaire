@@ -1,4 +1,5 @@
 import os
+from asyncio import to_thread
 
 from app.logging_utils import log_call
 from qdrant_client import QdrantClient
@@ -21,6 +22,10 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION = "photos"
 VECTOR_SIZE = 768
+
+
+async def qdrant_ready() -> bool:
+    return await to_thread(lambda: bool(_client().get_collections().collections))
 
 
 def _client() -> QdrantClient:
