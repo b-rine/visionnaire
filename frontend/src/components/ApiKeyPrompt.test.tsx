@@ -79,13 +79,16 @@ describe("ApiKeyPrompt", () => {
     const underlyingModalOnClose = vi.fn();
     window.addEventListener("keydown", underlyingModalOnClose);
 
-    render(<ApiKeyPrompt onSaved={vi.fn()} onClose={onClose} />);
-    fireEvent.keyDown(screen.getByPlaceholderText(/enter api key/i), {
-      key: "Escape",
-    });
+    try {
+      render(<ApiKeyPrompt onSaved={vi.fn()} onClose={onClose} />);
+      fireEvent.keyDown(screen.getByPlaceholderText(/enter api key/i), {
+        key: "Escape",
+      });
 
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(underlyingModalOnClose).not.toHaveBeenCalled();
-    window.removeEventListener("keydown", underlyingModalOnClose);
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(underlyingModalOnClose).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", underlyingModalOnClose);
+    }
   });
 });
