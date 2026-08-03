@@ -63,6 +63,9 @@ export default function PhotoLightbox({
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
       <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+        <button className="close-btn" onClick={onClose} title="Close">
+          ✕
+        </button>
         <img src={`/api/photos/${id}`} alt={filename} />
         {score !== undefined && (
           <span className="score-badge" title="Match strength">
@@ -75,7 +78,7 @@ export default function PhotoLightbox({
           disabled={deleting}
           title="Delete photo"
         >
-          {deleting ? "..." : pendingDelete ? "Confirm?" : "✕"}
+          {deleting ? "..." : pendingDelete ? "Confirm?" : "Del"}
         </button>
         {editing ? (
           <div className="caption-edit">

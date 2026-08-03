@@ -278,7 +278,8 @@ section {
 
 .lightbox-content .delete-btn {
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
   opacity: 1;
   font-size: 13px;
