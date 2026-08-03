@@ -16,12 +16,6 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {showKeyPrompt && (
-        <ApiKeyPrompt
-          onSaved={() => setShowKeyPrompt(false)}
-          onClose={() => setShowKeyPrompt(false)}
-        />
-      )}
       <nav>
         <Link to="/">Home</Link>
         <Link to="/caption">Caption</Link>
@@ -36,6 +30,12 @@ export default function App() {
           <Route path="/gallery" element={<Gallery />} />
         </Routes>
       </main>
+      {showKeyPrompt && (
+        <ApiKeyPrompt
+          onSaved={() => setShowKeyPrompt(false)}
+          onClose={() => setShowKeyPrompt(false)}
+        />
+      )}
     </BrowserRouter>
   );
 }
