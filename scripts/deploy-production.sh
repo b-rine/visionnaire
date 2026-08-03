@@ -41,6 +41,33 @@ verify_public_health() {
     "${PUBLIC_URL%/}/api/health/ready" >/dev/null
 }
 
+prepare_qdrant() {
+  local container_id
+  local health
+
+  # Recreate Qdrant separately so Compose does not immediately reject a stale
+  # unhealthy state while evaluating the backend's service_healthy dependency.
+  docker compose -f "${compose_file}" up -d --no-deps --force-recreate qdrant
+  container_id="$(docker compose -f "${compose_file}" ps -q qdrant)"
+
+  for _ in {1..36}; do
+    health="$(docker inspect --format '{{.State.Health.Status}}' "${container_id}")"
+    if [[ "${health}" == "healthy" ]]; then
+      return 0
+    fi
+
+    if [[ "$(docker inspect --format '{{.State.Running}}' "${container_id}")" != "true" ]]; then
+      break
+    fi
+
+    sleep 5
+  done
+
+  echo "Qdrant did not become healthy; recent logs follow." >&2
+  docker compose -f "${compose_file}" logs --tail 200 qdrant >&2
+  return 1
+}
+
 rollback() {
   echo "Deployment verification failed; restoring previous images." >&2
 
@@ -63,6 +90,7 @@ tag_current_for_rollback frontend "${frontend_image}"
 
 export IMAGE_TAG
 docker compose -f "${compose_file}" pull backend frontend
+prepare_qdrant
 docker compose -f "${compose_file}" up -d --remove-orphans
 
 if ! verify_public_health; then
