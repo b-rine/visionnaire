@@ -36,7 +36,9 @@ describe("ApiKeyPrompt", () => {
     const onClose = vi.fn();
     render(<ApiKeyPrompt onSaved={vi.fn()} onClose={onClose} />);
 
-    await userEvent.click(screen.getByTitle("Close"));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Close API key prompt" }),
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -65,8 +67,25 @@ describe("ApiKeyPrompt", () => {
     const onClose = vi.fn();
     render(<ApiKeyPrompt onSaved={vi.fn()} onClose={onClose} />);
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByPlaceholderText(/enter api key/i), {
+      key: "Escape",
+    });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops Escape from reaching an underlying modal", () => {
+    const onClose = vi.fn();
+    const underlyingModalOnClose = vi.fn();
+    window.addEventListener("keydown", underlyingModalOnClose);
+
+    render(<ApiKeyPrompt onSaved={vi.fn()} onClose={onClose} />);
+    fireEvent.keyDown(screen.getByPlaceholderText(/enter api key/i), {
+      key: "Escape",
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(underlyingModalOnClose).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", underlyingModalOnClose);
   });
 });

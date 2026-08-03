@@ -76,7 +76,7 @@ describe("PhotoLightbox", () => {
       />,
     );
 
-    await userEvent.click(screen.getByTitle("Close"));
+    await userEvent.click(screen.getByRole("button", { name: "Close photo" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onDelete).not.toHaveBeenCalled();

@@ -63,7 +63,13 @@ export default function PhotoLightbox({
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
       <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-        <button className="close-btn" onClick={onClose} title="Close">
+        <button
+          type="button"
+          className="close-btn"
+          onClick={onClose}
+          title="Close"
+          aria-label="Close photo"
+        >
           ✕
         </button>
         <img src={`/api/photos/${id}`} alt={filename} />

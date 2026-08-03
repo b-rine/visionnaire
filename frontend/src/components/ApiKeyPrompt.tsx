@@ -11,10 +11,13 @@ export default function ApiKeyPrompt({ onSaved, onClose }: ApiKeyPromptProps) {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onClose]);
 
   function handleSave() {
@@ -29,7 +32,13 @@ export default function ApiKeyPrompt({ onSaved, onClose }: ApiKeyPromptProps) {
         className="lightbox-content api-key-prompt"
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="close-btn" onClick={onClose} title="Close">
+        <button
+          type="button"
+          className="close-btn"
+          onClick={onClose}
+          title="Close"
+          aria-label="Close API key prompt"
+        >
           ✕
         </button>
         <p>An API key is required to upload, edit, or delete photos.</p>
