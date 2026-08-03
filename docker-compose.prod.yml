@@ -19,7 +19,7 @@ services:
       start_period: 10s
 
   backend:
-    image: ghcr.io/b-rine/visionnaire-backend:latest
+    image: ghcr.io/b-rine/visionnaire-backend:${IMAGE_TAG:-latest}
     environment:
       - TRITON_HOST=${TRITON_HOST}
       - TRITON_PORT=${TRITON_PORT:-443}
@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/b-rine/visionnaire-frontend:latest
+    image: ghcr.io/b-rine/visionnaire-frontend:${IMAGE_TAG:-latest}
     depends_on:
       backend:
         condition: service_healthy

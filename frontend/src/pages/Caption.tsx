@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
+import { isReadOnlyDeployment } from "../deployment";
 
 interface StorageStats {
   used_bytes: number;
@@ -11,6 +12,7 @@ function formatMB(bytes: number): string {
 }
 
 export default function Caption() {
+  const readOnly = isReadOnlyDeployment();
   const [preview, setPreview] = useState<string | null>(null);
   const [caption, setCaption] = useState<string | null>(null);
   const [indexMsg, setIndexMsg] = useState<string | null>(null);
@@ -80,19 +82,23 @@ export default function Caption() {
           </span>
         </div>
       )}
-      <label
-        className="dropzone"
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        <input
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
-        Drag & drop an image here, or click to browse
-      </label>
+      {!readOnly && (
+        <label
+          className="dropzone"
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) =>
+              e.target.files?.[0] && handleFile(e.target.files[0])
+            }
+          />
+          Drag & drop an image here, or click to browse
+        </label>
+      )}
 
       {preview && <img src={preview} alt="preview" className="preview-image" />}
       {loading && <p className="loading">Generating caption & indexing...</p>}

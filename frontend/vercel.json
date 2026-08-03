@@ -1,12 +1,26 @@
 {
-  "rewrites": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "https://visionnaire.nguyenbrian.dev/api/:path*"
+      "src": "/api/photos/upload",
+      "methods": ["POST"],
+      "dest": "/api/preview-read-only"
     },
     {
-      "source": "/:path*",
-      "destination": "/index.html"
+      "src": "/api/photos/[^/]+",
+      "methods": ["PATCH", "DELETE"],
+      "dest": "/api/preview-read-only"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "https://visionnaire.nguyenbrian.dev/api/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }

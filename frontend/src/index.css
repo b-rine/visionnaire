@@ -31,6 +31,14 @@ nav a:hover {
   color: #fff;
 }
 
+.preview-banner {
+  margin: 0;
+  padding: 8px 16px;
+  color: #3d2d00;
+  text-align: center;
+  background: #ffd866;
+}
+
 main {
   max-width: 900px;
   margin: 40px auto;

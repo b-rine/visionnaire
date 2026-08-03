@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { onUnauthorized } from "./apiKey";
 import ApiKeyPrompt from "./components/ApiKeyPrompt";
+import { isReadOnlyDeployment } from "./deployment";
 import Caption from "./pages/Caption";
 import Gallery from "./pages/Gallery";
 import Home from "./pages/Home";
@@ -9,6 +10,7 @@ import Search from "./pages/Search";
 
 export default function App() {
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  const readOnly = isReadOnlyDeployment();
 
   useEffect(() => {
     onUnauthorized(() => setShowKeyPrompt(true));
@@ -22,6 +24,11 @@ export default function App() {
         <Link to="/search">Search</Link>
         <Link to="/gallery">Gallery</Link>
       </nav>
+      {readOnly && (
+        <p className="preview-banner">
+          Preview deployment — production data is read-only.
+        </p>
+      )}
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
