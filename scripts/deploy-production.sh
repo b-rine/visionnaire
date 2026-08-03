@@ -42,17 +42,59 @@ verify_public_health() {
 }
 
 prepare_qdrant() {
+  local target_image="qdrant/qdrant:v1.18.3"
+  local migration_images=(
+    "qdrant/qdrant:v1.9.7"
+    "qdrant/qdrant:v1.10.1"
+    "qdrant/qdrant:v1.11.5"
+    "qdrant/qdrant:v1.12.6"
+    "qdrant/qdrant:v1.13.6"
+    "qdrant/qdrant:v1.14.1"
+    "qdrant/qdrant:v1.15.5"
+    "qdrant/qdrant:v1.16.3"
+    "qdrant/qdrant:v1.17.1"
+    "${target_image}"
+  )
+  local image
+  local logs
+
+  if start_qdrant "${target_image}"; then
+    return 0
+  fi
+
+  logs="$(docker compose -f "${compose_file}" logs --no-color --tail 200 qdrant)"
+  if [[ "${logs}" != *'unknown variant `on_disk`, expected `mmap` or `in_ram_mmap`'* ]]; then
+    report_qdrant_failure
+    return 1
+  fi
+
+  echo "Detected Qdrant v1.9 storage; applying required sequential migrations."
+  for image in "${migration_images[@]}"; do
+    echo "Migrating Qdrant storage with ${image}."
+    if ! start_qdrant "${image}"; then
+      report_qdrant_failure
+      return 1
+    fi
+  done
+}
+
+start_qdrant() {
+  local image="$1"
   local container_id
   local health
 
   # Recreate Qdrant separately so Compose does not immediately reject a stale
   # unhealthy state while evaluating the backend's service_healthy dependency.
-  docker compose -f "${compose_file}" up -d --no-deps --force-recreate qdrant
+  QDRANT_IMAGE="${image}" docker compose -f "${compose_file}" \
+    up -d --no-deps --force-recreate qdrant
   container_id="$(docker compose -f "${compose_file}" ps -q qdrant)"
 
   for _ in {1..36}; do
     health="$(docker inspect --format '{{.State.Health.Status}}' "${container_id}")"
     if [[ "${health}" == "healthy" ]]; then
+      # Give startup migrations time to flush before replacing the container
+      # with the next consecutive minor release.
+      sleep 5
       return 0
     fi
 
@@ -63,9 +105,12 @@ prepare_qdrant() {
     sleep 5
   done
 
+  return 1
+}
+
+report_qdrant_failure() {
   echo "Qdrant did not become healthy; recent logs follow." >&2
   docker compose -f "${compose_file}" logs --tail 200 qdrant >&2
-  return 1
 }
 
 rollback() {
