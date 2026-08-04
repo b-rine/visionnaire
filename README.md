@@ -8,13 +8,6 @@ An ML-powered photo app for image captioning and semantic search, built on a sin
 ViT-L-14 model served by Triton Inference Server, with Qdrant for vector search, a FastAPI
 backend, and a React frontend.
 
-This is a personal project, not one open to outside contributions — I built it to learn how
-the pieces of a real ML system fit together end-to-end: writing a custom Triton Python
-backend, running vector search against a production-shaped API, and self-hosting the whole
-stack (a home GPU for inference, a free-tier cloud instance for everything else, connected
-over Cloudflare Tunnels). This README walks through how it's built and why, in case any of it
-is useful to read.
-
 ## Table of Contents
 
 - [Features](#features)
