@@ -109,7 +109,11 @@ backup_qdrant_storage() {
     --entrypoint tar \
     "${image}" \
     -C /qdrant/storage -czf "/backup/${backup_name}" .
-  chmod 0600 "${backup_dir}/${backup_name}"
+  docker run --rm \
+    --volume "${backup_dir}:/backup" \
+    --entrypoint chmod \
+    "${image}" \
+    0600 "/backup/${backup_name}"
   docker run --rm \
     --volume "${backup_dir}:/backup:ro" \
     --entrypoint tar \
