@@ -84,4 +84,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Persistent Qdrant data must be migrated through compatible versions.
+      - dependency-name: qdrant/qdrant
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
     open-pull-requests-limit: 5
