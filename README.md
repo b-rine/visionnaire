@@ -8,6 +8,13 @@ An ML-powered photo app for image captioning and semantic search, built on a sin
 ViT-L-14 model served by Triton Inference Server, with Qdrant for vector search, a FastAPI
 backend, and a React frontend.
 
+This is a personal project, not one open to outside contributions — I built it to learn how
+the pieces of a real ML system fit together end-to-end: writing a custom Triton Python
+backend, running vector search against a production-shaped API, and self-hosting the whole
+stack (a home GPU for inference, a free-tier cloud instance for everything else, connected
+over Cloudflare Tunnels). This README walks through how it's built and why, in case any of it
+is useful to read.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -21,7 +28,6 @@ backend, and a React frontend.
 - [CI/CD](#cicd)
 - [Deployment](#deployment)
 - [Security](#security)
-- [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -254,19 +260,8 @@ See [`docs/self-hosting.md`](docs/self-hosting.md) for the full one-time setup r
   hitting it directly. (It shares Docker's default network with the other containers, same as
   any Compose service; nothing besides the backend is coded to talk to it.)
 
-If you find a security issue, please open a private security advisory on GitHub rather than a
+If you spot a security issue, please open a private security advisory on GitHub rather than a
 public issue.
-
-## Contributing
-
-Contributions are welcome. Please open an issue to discuss non-trivial changes before sending a
-pull request.
-
-- All CI checks (lint, backend tests, frontend tests, E2E) must pass before merge.
-- Follow the existing code style — Trunk enforces formatting/linting on Python and TypeScript.
-- Add or update tests for any behavior change.
-- Never commit secrets, API keys, or `.env` files — `.env.example` documents every variable a
-  contributor needs.
 
 ## License
 
