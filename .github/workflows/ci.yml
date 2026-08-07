@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       qdrant:
-        image: qdrant/qdrant:v1.9.0
+        image: qdrant/qdrant:v1.18.3
         ports:
           - 6333:6333
     defaults:
