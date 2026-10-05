@@ -1,9 +1,9 @@
-fastapi==0.141.1
-uvicorn[standard]==0.52.0
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
 python-multipart==0.0.32
-tritonclient[http]==2.71.0
-numpy==2.5.1
-qdrant-client==1.18.0
+tritonclient[http]==2.73.0
+numpy==2.5.3
+qdrant-client==1.19.1
 Pillow==12.3.0
-boto3==1.43.61
+boto3==1.43.107
 slowapi==0.1.10
