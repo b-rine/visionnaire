@@ -71,6 +71,11 @@ updates:
       - dependency-name: nvidia/tritonserver
         update-types:
           - version-update:semver-major
+      # A new Python release can lack wheels (e.g. grpcio on 3.15); bump the base image by hand.
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
     open-pull-requests-limit: 5
 
   - package-ecosystem: docker-compose
