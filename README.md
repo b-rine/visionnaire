@@ -1,53 +1,27 @@
 # Visionnaire
 
-[![CI](https://github.com/b-rine/visionnaire/actions/workflows/ci.yml/badge.svg)](https://github.com/b-rine/visionnaire/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/b-rine/visionnaire/branch/main/graph/badge.svg)](https://codecov.io/gh/b-rine/visionnaire)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Photo app for image captioning and semantic search, built on CoCa served by Triton with Qdrant vector search
 
-An ML-powered photo app for image captioning and semantic search, built on a single CoCa
-ViT-L-14 model served by Triton Inference Server, with Qdrant for vector search, a FastAPI
-backend, and a React frontend.
+## Overview
 
-## Table of Contents
+### Features
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Environment Variables](#environment-variables)
-- [Development](#development)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [CI/CD](#cicd)
-- [Deployment](#deployment)
-- [Security](#security)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
+- **Caption and index in one step.** An upload generates a natural-language caption and a
+  768-dimensional image embedding. Both are persisted to Qdrant.
+- **Semantic search.** Search photos with plain text using similarity between text and image embeddings.
+- **Keyword search.** Run a full-text search across stored captions.
+- **Gallery.** Browse indexed photos with cursor pagination.
+- **Caption editing.** Edit a caption inline. The edit is stored in `caption_override`,
+  preserving the original CoCa caption for future fine-tuning.
+- **Deduplication.** A SHA-256 hash determines each photo's UUID. Re-uploading an indexed
+  photo returns its existing record.
+- **Pluggable storage.** Store photos on local disk by default or in Cloudflare R2.
+- **API key authentication and rate limiting.** Writes require a shared key. Reads are public
+  for personal or local use, and search is public and rate-limited. See [Security](#security).
+- **Health checks.** Use `/api/health/live` for liveness and `/api/health/ready` for Qdrant
+  and Triton readiness. The deployment script checks readiness after a deploy.
 
-## Features
-
-- **Caption + index in one step** — upload an image and CoCa generates a natural-language
-  caption and a 768-dim embedding in the same request; both are persisted immediately.
-- **Semantic search** — query photos with plain text using cross-modal vector similarity
-  (CoCa embeds text and images into the same space, so a caption-like query matches similar
-  photos directly).
-- **Keyword search** — a full-text fallback mode across stored captions, for when you know
-  roughly what a photo's caption says but similarity search isn't surfacing it.
-- **Gallery** — cursor-paginated browsing of every indexed photo.
-- **Caption editing** — edit an auto-generated caption inline; the original CoCa output is
-  preserved separately (`caption_override`) so it stays available for future fine-tuning.
-- **Content-addressed dedup** — photos are hashed (SHA-256 → deterministic UUID), so
-  re-uploading the same image is a no-op instead of a duplicate.
-- **Pluggable storage** — local disk by default (zero cloud signup required to run this
-  project), or Cloudflare R2 for production.
-- **API key auth + rate limiting** — write endpoints (upload/edit/delete) require a shared key.
-  Reads (gallery, single-photo, storage stats) stay open, matching a personal/local-use threat
-  model rather than a multi-tenant one; search is also open but still rate-limited (see
-  [Security](#security)) so it can't be used to brute-force the API key.
-- **Health checks** — `/api/health/live` and `/api/health/ready` (the latter checks Qdrant and
-  Triton connectivity), used by CI to verify a deploy before leaving it live.
-
-## Architecture
+### Architecture
 
 ```text
 [browser] → CF edge → [Oracle cloudflared] → frontend:8080 → backend:8000 → qdrant:6333
@@ -55,49 +29,73 @@ backend, and a React frontend.
 [Oracle backend] → CF edge → CF Access policy → [Home cloudflared] → triton:8000
 ```
 
-The diagram above is the production topology (see [Deployment](#deployment)), labeled with the
-ports each service listens on _inside_ its own container. Running locally, everything runs on
-one Docker network with no tunnels involved — the table below lists the **host-facing** ports
-`docker compose up` publishes, which is what you'll actually connect to.
+The diagram shows the [production topology](#deployment) and internal container ports.
+The local app services communicate over the Compose network.
 
-| Layer          | Technology                              | Host port (local `docker compose up`)   |
-| -------------- | --------------------------------------- | --------------------------------------- |
-| Inference      | Triton Inference Server (CoCa ViT-L-14) | 8000–8002 (not published in production) |
-| Vector store   | Qdrant                                  | 6333 (not published in production)      |
-| Object storage | Local disk (default) or Cloudflare R2   | (local) or (external)                   |
-| Backend        | FastAPI                                 | 8080 (container listens on 8000)        |
-| Frontend       | React + Vite, served via nginx          | 3000 (container listens on 8080)        |
+#### Why one model for both caption and search
 
-### Why one model for both caption and search
+Visionnaire uses one CoCa ViT-L-14 checkpoint (`mscoco_finetuned_laion2B-s13B-b90k`) for
+captioning, image embedding, and text embedding. Images and text share a vector space,
+so a generated caption can serve as a query for similar photos.
 
-Most photo apps pair a captioning model with a separate CLIP model for search embeddings.
-Visionnaire uses a single CoCa ViT-L-14 checkpoint (`mscoco_finetuned_laion2B-s13B-b90k`) for
-both: one Triton model handles captioning, image embedding, and text embedding in the same
-vector space, so searching with a generated caption gives consistent similarity scores instead
-of comparing across two unrelated embedding spaces.
+## Tech stack
 
-## Prerequisites
+| Layer          | Technology                                 | Local host port            |
+| -------------- | ------------------------------------------ | -------------------------- |
+| Inference      | Triton Inference Server with CoCa ViT-L-14 | 8000–8002                  |
+| Vector store   | Qdrant                                     | 6333                       |
+| Object storage | Local disk or Cloudflare R2                | —                          |
+| Backend        | FastAPI                                    | 8080 (container port 8000) |
+| Frontend       | React and Vite, served by nginx in Docker  | 3000 (container port 8080) |
+
+### Project Structure
+
+```text
+visionnaire/
+├── backend/                        # FastAPI app
+│   ├── app/
+│   │   ├── routers/                # photos.py and health.py
+│   │   ├── services/               # triton_client, vector_store, storage, r2_client
+│   │   ├── auth.py                 # API key dependency and rate limiter
+│   │   └── logging_utils.py
+│   └── tests/
+├── frontend/                       # React and Vite
+│   └── src/
+│       ├── pages/                  # Home, Caption, Search, Gallery
+│       └── components/             # PhotoLightbox, ApiKeyPrompt
+├── triton/model_repository/coca/   # CoCa Python-backend model
+├── docs/                           # self-hosting.md, monitoring.md
+├── monitoring/                     # Standalone Uptime Kuma Compose stack
+├── scripts/                        # deploy-production.sh
+└── docker-compose*.yml
+```
+
+### Acknowledgments
+
+- [open_clip](https://github.com/mlfoundations/open_clip) for the CoCa ViT-L-14 implementation
+  and pretrained checkpoints.
+- [Triton Inference Server](https://github.com/triton-inference-server/server) for model serving.
+- [Qdrant](https://github.com/qdrant/qdrant) for vector search.
+
+## Getting started
+
+### Prerequisites
 
 - Docker with the Compose plugin
-- An NVIDIA GPU with drivers installed (Triton needs a GPU for inference)
-- [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-  for GPU passthrough into containers
+- An NVIDIA GPU and drivers
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+  for GPU passthrough
 
-Only needed for local development or running the test suites outside Docker (matches the
-versions CI uses):
+For local development and tests outside Docker, CI uses Python 3.14 and Node.js 26.
 
-- Python 3.14
-- Node.js 26 (includes `npm`/`npx`)
+### Quick Start
 
-## Quick Start
-
-1. Clone the repo.
-2. Copy `.env.example` to `.env` and fill in the required values (see
-   [Environment Variables](#environment-variables) below).
-3. Start everything:
+1. Clone the repository and open its root directory.
+2. Copy `.env.example` to `.env` and set `API_KEY` for writes. See [Configuration](#configuration).
+3. Build and start the local app services.
 
    ```bash
-   docker compose up --build
+   docker compose up --build triton qdrant backend frontend
    ```
 
 | Service          | URL                               |
@@ -106,57 +104,94 @@ versions CI uses):
 | Backend API docs | <http://localhost:8080/docs>      |
 | Qdrant dashboard | <http://localhost:6333/dashboard> |
 
-The Triton model (~1.5 GB) downloads from Hugging Face on first run and is cached in a Docker
-volume. First startup will be slow; subsequent ones are fast.
+On first startup, Triton loads the pretrained checkpoint and caches the download in a Docker volume.
 
-## Environment Variables
+### Development
 
-Copy `.env.example` to `.env` — Docker Compose reads it automatically.
-
-**Required:**
-
-| Variable  | Default | Description                                                                                          |
-| --------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `API_KEY` | —       | Shared key for write endpoints (upload, delete, caption edit). Generate with `openssl rand -hex 24`. |
-
-**Required when `STORAGE_BACKEND=r2`:**
-
-| Variable               | Description                      |
-| ---------------------- | -------------------------------- |
-| `R2_ACCOUNT_ID`        | Cloudflare R2 account ID         |
-| `R2_ACCESS_KEY_ID`     | R2 access key ID                 |
-| `R2_SECRET_ACCESS_KEY` | R2 secret access key             |
-| `R2_BUCKET_NAME`       | R2 bucket name for photo storage |
-
-**Optional:**
-
-| Variable                  | Default    | Description                                                                               |
-| ------------------------- | ---------- | ----------------------------------------------------------------------------------------- |
-| `LOCAL_PHOTOS_DIR`        | `./photos` | Photo storage directory (local backend only). Docker Compose sets this to `/data/photos`. |
-| `ALLOWED_ORIGINS`         | `*`        | Comma-separated CORS allowed origins. Set to your public domain in production.            |
-| `TRITON_HOST`             | `triton`   | Triton hostname. Override when reaching Triton remotely (e.g. over a Cloudflare Tunnel).  |
-| `TRITON_SSL`              | `false`    | Set to `true` when connecting to Triton over HTTPS.                                       |
-| `CF_ACCESS_CLIENT_ID`     | —          | Cloudflare Access service token client ID for Triton tunnel auth.                         |
-| `CF_ACCESS_CLIENT_SECRET` | —          | Cloudflare Access service token secret.                                                   |
-| `LOG_LEVEL`               | `INFO`     | Backend log level (structured JSON logs to stdout).                                       |
-| `STORAGE_BACKEND`         | `local`    | `local` (photos on disk, no signup needed) or `r2` (Cloudflare R2).                       |
-
-## Development
-
-Runs Triton, Qdrant, and the backend in Docker while serving the frontend with Vite for instant
-hot reload — no container rebuilds needed.
+Run Triton, Qdrant, and the backend in Docker from the repository root. Run the frontend
+with Vite for hot reload.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d triton qdrant backend
-cd frontend && npm run dev
+cd frontend
+npm ci
+npm run dev
 ```
 
-The frontend dev server runs at <http://localhost:5173> and proxies API calls to
-`localhost:8080`. The backend reloads automatically on Python file changes.
+Open <http://localhost:5173>. Vite proxies API requests to `localhost:8080`.
+The backend reloads on Python file changes.
+
+### Deployment
+
+The reference production setup runs the backend, frontend, and Qdrant on an Oracle Cloud
+Ampere A1 instance. Triton runs on a local GPU machine and is reached through a private
+Cloudflare Tunnel protected by a Cloudflare Access service token. Cloudflare terminates
+public HTTPS at its edge.
+
+See [self-hosting](docs/self-hosting.md) for the one-time setup and
+[monitoring](docs/monitoring.md) for independent uptime alerts.
+
+### CI/CD
+
+Pushes to `main` and pull requests targeting `main` run
+[Trunk linting](https://github.com/b-rine/visionnaire/actions/workflows/ci.yml) first.
+After lint passes, the backend unit suite, Qdrant integration suite, frontend unit suite
+with [Codecov](https://codecov.io/gh/b-rine/visionnaire) coverage, and Playwright suite run in parallel.
+
+On pushes to `main`, two jobs run after the tests pass.
+
+- `build-push` builds ARM64 backend and frontend images and publishes them to GHCR with
+  `latest` and commit SHA tags.
+- `deploy` copies the production Compose file and deployment script to the host and runs
+  the script over SSH. The script verifies the public site and `/api/health/ready`. If
+  verification fails, it attempts to restore the prior backend and frontend images when both
+  are available.
+
+Third-party GitHub Actions are pinned to commit SHAs.
+
+## Usage
+
+Use the [deployed app](https://visionnaire.nguyenbrian.dev) to browse and search photos.
+In the local app, use Caption to upload a photo, Search for semantic or keyword queries,
+and Gallery to browse indexed photos or edit captions. Enter your API key when prompted
+to make a change.
+
+## Configuration
+
+Copy `.env.example` to `.env` for Docker Compose. Generate the shared `API_KEY` for writes
+with `openssl rand -hex 24`.
+
+| Purpose                                                | Variables                                                                     |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Write authentication                                   | `API_KEY`                                                                     |
+| CORS allowed origins                                   | `ALLOWED_ORIGINS`                                                             |
+| Storage selection and local photo directory            | `STORAGE_BACKEND`, `LOCAL_PHOTOS_DIR`                                         |
+| Required for Cloudflare R2 storage                     | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` |
+| Triton connection                                      | `TRITON_HOST`, `TRITON_PORT`, `TRITON_SSL`                                    |
+| Cloudflare Access service token pair for remote Triton | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`                              |
+| Cloudflare Tunnel connectors                           | `CLOUDFLARE_TUNNEL_TOKEN`, `TRITON_TUNNEL_TOKEN`                              |
+| Qdrant connection                                      | `QDRANT_HOST`, `QDRANT_PORT`                                                  |
+| Backend JSON log level                                 | `LOG_LEVEL`                                                                   |
+
+Compose sets the local photo directory to its mounted volume and points the backend at the
+Qdrant service. Set `LOCAL_PHOTOS_DIR` or `LOG_LEVEL` in the process environment when running
+the backend directly.
+
+### Security
+
+- Upload, caption edit, and delete require the shared key in the `X-API-Key` header.
+  Gallery listing, single-photo fetch, storage stats, search, and health endpoints are public.
+- SlowAPI applies limits per API key header when present and per client IP otherwise.
+  Upload allows 10 requests per minute, caption edit and delete each allow 30, and search
+  allows 20. Gallery listing, single-photo fetch, storage stats, and health are unthrottled.
+- The backend, frontend, and Triton containers run as non-root users.
+- In the production Compose stack, Qdrant is on the Compose network and has no published host port.
+
+Report security issues through a private GitHub security advisory.
 
 ## Testing
 
-**Backend** — Triton, Qdrant, and the storage backend are all mocked; no Docker or GPU needed:
+Backend unit tests mock Triton, Qdrant, and storage, so they run without Docker or a GPU.
 
 ```bash
 cd backend
@@ -165,104 +200,37 @@ python -m venv .venv
 .venv/bin/pytest -v -m "not integration"
 ```
 
-A separate, gated suite runs against a real Qdrant instance:
+For the integration suite, start Qdrant from the repository root and wait for
+`http://localhost:6333/readyz` to return HTTP 200.
 
 ```bash
 docker compose up -d qdrant
-QDRANT_HOST=localhost .venv/bin/pytest -v -m integration
 ```
 
-**Frontend unit tests:**
+Then enter the backend directory and run the suite using the virtual environment created above.
+
+```bash
+cd backend
+.venv/bin/pytest -v -m integration
+```
+
+### Frontend unit tests
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm test
 ```
 
-**Frontend end-to-end tests** (Playwright, runs against a real browser):
+### Frontend end-to-end tests in Chromium
 
 ```bash
 cd frontend
-npm install
-npx playwright install chromium
+npm ci
+npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-## Project Structure
-
-```text
-visionnaire/
-├── backend/                # FastAPI app
-│   ├── app/
-│   │   ├── routers/        # photos.py (upload/search/list/edit/delete), health.py
-│   │   ├── services/       # triton_client, vector_store, storage, r2_client
-│   │   ├── auth.py         # API key dependency + rate limiter
-│   │   └── logging_utils.py
-│   └── tests/
-├── frontend/                # React + Vite
-│   └── src/
-│       ├── pages/           # Home, Caption, Search, Gallery
-│       └── components/      # PhotoLightbox, ApiKeyPrompt
-├── triton/model_repository/coca/   # CoCa Python-backend model
-├── docs/                     # self-hosting.md, monitoring.md
-├── monitoring/                # standalone Uptime Kuma compose stack
-├── scripts/                   # deploy-production.sh
-└── docker-compose*.yml
-```
-
-## CI/CD
-
-Every push and pull request against `main` runs linting (Trunk) first. Once lint passes, four
-jobs run in parallel: backend unit tests, a gated backend integration suite against a real
-Qdrant container, frontend unit tests with coverage (uploaded to Codecov), and a Playwright
-end-to-end suite.
-
-On a push to `main` only, once all of the above pass, two more jobs run:
-
-- **build-push** — cross-compiles ARM64 Docker images for both backend and frontend and pushes
-  them to GHCR, tagged `:latest` and `:<sha>`.
-- **deploy** — copies the production compose file to the host over SSH and redeploys, then
-  verifies the public site and `/api/health/ready`; if verification fails, it automatically
-  restores the previously running images.
-
-All third-party GitHub Actions are pinned to a resolved commit SHA (not a floating tag) as a
-supply-chain security measure.
-
-## Deployment
-
-The reference production setup runs the backend, frontend, and Qdrant on an Oracle Cloud
-Always Free Ampere A1 instance, with Triton running on a local GPU machine reached over a
-private Cloudflare Tunnel protected by a Cloudflare Access service token. All TLS is handled at
-Cloudflare's edge — no certificates to manage anywhere in the stack.
-
-See [`docs/self-hosting.md`](docs/self-hosting.md) for the full one-time setup runbook, and
-[`docs/monitoring.md`](docs/monitoring.md) for setting up independent uptime alerts.
-
-## Security
-
-- Write endpoints (`upload`, `edit caption`, `delete`) require a shared `API_KEY` header; reads
-  are open by design (see [Features](#features)).
-- Rate limits (`slowapi`, keyed by API key when present and falling back to client IP
-  otherwise): `10/minute` on upload, `30/minute` on edit and delete, `20/minute` on search — so
-  unauthenticated brute-force key-guessing against search is capped too. Gallery listing,
-  single-photo fetch, storage stats, and the health endpoints are not rate-limited.
-- All three containers (backend, frontend, Triton) run as non-root users.
-- Qdrant has no host port mapping in the production compose file, so it's unreachable from
-  outside the host entirely — no external caller can bypass the API key and rate limiting by
-  hitting it directly. (It shares Docker's default network with the other containers, same as
-  any Compose service; nothing besides the backend is coded to talk to it.)
-
-If you spot a security issue, please open a private security advisory on GitHub rather than a
-public issue.
-
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgments
-
-- [open_clip](https://github.com/mlfoundations/open_clip) for the CoCa ViT-L-14 implementation
-  and pretrained checkpoints.
-- [Triton Inference Server](https://github.com/triton-inference-server/server) for model serving.
-- [Qdrant](https://github.com/qdrant/qdrant) for vector search.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
