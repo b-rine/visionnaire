@@ -87,7 +87,7 @@ Only needed for local development or running the test suites outside Docker (mat
 versions CI uses):
 
 - Python 3.14
-- Node.js 22 (includes `npm`/`npx`)
+- Node.js 26 (includes `npm`/`npx`)
 
 ## Quick Start
 
