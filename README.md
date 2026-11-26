@@ -86,7 +86,7 @@ of comparing across two unrelated embedding spaces.
 Only needed for local development or running the test suites outside Docker (matches the
 versions CI uses):
 
-- Python 3.12
+- Python 3.14
 - Node.js 22 (includes `npm`/`npx`)
 
 ## Quick Start
