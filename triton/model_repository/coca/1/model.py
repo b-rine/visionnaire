@@ -18,7 +18,13 @@ class TritonPythonModel:
             "coca_ViT-L-14",
             pretrained="mscoco_finetuned_laion2B-s13B-b90k",
         )
+        # Cast to fp16 before moving to the GPU: on a 3 GB GTX 1060 the whole GPU
+        # peaked at ~1.6 GB during 6-beam captioning (measured 2026-11-26). Weights
+        # and inputs are fp16, so outputs differ slightly from fp32.
+        if self.device == "cuda":
+            self.model = self.model.half()
         self.model = self.model.to(self.device).eval()
+        self.dtype = next(self.model.parameters()).dtype
         self.tokenizer = open_clip.get_tokenizer("coca_ViT-L-14")
 
     def execute(self, requests):
@@ -67,7 +73,7 @@ class TritonPythonModel:
 
     def _load_image(self, raw: bytes) -> torch.Tensor:
         image = self.preprocess(Image.open(io.BytesIO(raw)).convert("RGB"))
-        return image.unsqueeze(0).to(self.device)
+        return image.unsqueeze(0).to(self.device, dtype=self.dtype)
 
     def finalize(self):
         del self.model
