@@ -21,7 +21,6 @@ backend, and a React frontend.
 - [CI/CD](#cicd)
 - [Deployment](#deployment)
 - [Security](#security)
-- [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -254,19 +253,8 @@ See [`docs/self-hosting.md`](docs/self-hosting.md) for the full one-time setup r
   hitting it directly. (It shares Docker's default network with the other containers, same as
   any Compose service; nothing besides the backend is coded to talk to it.)
 
-If you find a security issue, please open a private security advisory on GitHub rather than a
+If you spot a security issue, please open a private security advisory on GitHub rather than a
 public issue.
-
-## Contributing
-
-Contributions are welcome. Please open an issue to discuss non-trivial changes before sending a
-pull request.
-
-- All CI checks (lint, backend tests, frontend tests, E2E) must pass before merge.
-- Follow the existing code style — Trunk enforces formatting/linting on Python and TypeScript.
-- Add or update tests for any behavior change.
-- Never commit secrets, API keys, or `.env` files — `.env.example` documents every variable a
-  contributor needs.
 
 ## License
 
