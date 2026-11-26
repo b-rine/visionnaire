@@ -9,6 +9,11 @@ updates:
       time: "09:00" # yamllint disable-line rule:quoted-strings
       timezone: America/Chicago
     groups:
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
+          - "@testing-library/jest-dom"
       npm-minor-and-patch:
         patterns:
           - "*"
