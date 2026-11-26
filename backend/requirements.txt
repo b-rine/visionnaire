@@ -22,7 +22,7 @@ anyio==4.16.0
     #   watchfiles
 attrs==26.1.0
     # via aiohttp
-boto3==1.44.7
+boto3==1.44.9
     # via -r requirements.in
 botocore==1.44.9
     # via
