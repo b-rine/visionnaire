@@ -4,7 +4,7 @@
 #
 #    pip-compile --constraint=requirements.txt --output-file=requirements-dev.txt --strip-extras requirements-dev.in
 #
-anyio==4.14.2
+anyio==4.16.0
     # via
     #   -c requirements.txt
     #   httpx2
@@ -37,3 +37,7 @@ truststore==0.10.4
     # via
     #   httpcore2
     #   httpx2
+typing-extensions==4.16.0
+    # via
+    #   -c requirements.txt
+    #   anyio
