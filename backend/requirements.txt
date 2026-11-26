@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.4
     # via tritonclient
 aiosignal==1.4.0
     # via aiohttp
@@ -14,22 +14,23 @@ annotated-doc==0.0.4
     # via fastapi
 annotated-types==0.7.0
     # via pydantic
-anyio==4.14.1
+anyio==4.14.2
     # via
+    #   fastapi
     #   httpx
     #   starlette
     #   watchfiles
 attrs==26.1.0
     # via aiohttp
-boto3==1.43.61
+boto3==1.44.7
     # via -r requirements.in
-botocore==1.43.62
+botocore==1.44.9
     # via
     #   boto3
     #   s3transfer
-brotli==1.2.0
+brotli==1.2.1
     # via geventhttpclient
-certifi==2026.6.17
+certifi==2026.10.18
     # via
     #   geventhttpclient
     #   httpcore
@@ -38,7 +39,7 @@ click==8.4.2
     # via uvicorn
 deprecated==1.3.1
     # via limits
-fastapi==0.141.1
+fastapi==0.165.0
     # via -r requirements.in
 frozenlist==1.8.0
     # via
@@ -58,7 +59,7 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
-h2==4.3.0
+h2==4.4.1
     # via httpx
 hpack==4.2.0
     # via h2
@@ -83,19 +84,21 @@ limits==5.8.0
     # via slowapi
 ml-dtypes==0.5.4
     # via tritonclient
-multidict==6.7.1
+multidict==6.9.1
     # via
     #   aiohttp
     #   yarl
-numpy==2.5.1
+numpy==2.5.5
     # via
     #   -r requirements.in
     #   ml-dtypes
     #   qdrant-client
     #   tritonclient
+opentelemetry-api==1.45.2
+    # via fastapi
 packaging==26.2
     # via limits
-pillow==12.3.0
+pillow==13.0.0
     # via -r requirements.in
 portalocker==2.10.1
     # via qdrant-client
@@ -115,13 +118,13 @@ python-dateutil==2.9.0.post0
     # via botocore
 python-dotenv==1.2.2
     # via uvicorn
-python-multipart==0.0.32
+python-multipart==0.0.34
     # via -r requirements.in
 python-rapidjson==1.23
     # via tritonclient
 pyyaml==6.0.3
     # via uvicorn
-qdrant-client==1.18.0
+qdrant-client==1.20.0
     # via -r requirements.in
 s3transfer==0.19.2
     # via boto3
@@ -129,9 +132,9 @@ six==1.17.0
     # via python-dateutil
 slowapi==0.1.10
     # via -r requirements.in
-starlette==1.3.1
+starlette==1.10.0
     # via fastapi
-tritonclient==2.71.0
+tritonclient==2.75.0
     # via -r requirements.in
 typing-extensions==4.15.0
     # via
@@ -141,6 +144,7 @@ typing-extensions==4.15.0
     #   fastapi
     #   grpcio
     #   limits
+    #   opentelemetry-api
     #   pydantic
     #   pydantic-core
     #   starlette
@@ -149,13 +153,13 @@ typing-inspection==0.4.2
     # via
     #   fastapi
     #   pydantic
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   botocore
     #   geventhttpclient
     #   qdrant-client
     #   tritonclient
-uvicorn==0.52.0
+uvicorn==0.54.0
     # via -r requirements.in
 uvloop==0.22.1
     # via uvicorn
@@ -165,7 +169,7 @@ websockets==16.0
     # via uvicorn
 wrapt==2.2.2
     # via deprecated
-yarl==1.24.2
+yarl==1.25.1
     # via aiohttp
 zope-event==6.2
     # via gevent

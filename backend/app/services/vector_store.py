@@ -193,12 +193,13 @@ async def search_photos(
     top_k: int = 10,
 ) -> list[ScoredPoint]:
     client = _client()
-    return client.search(
+    response = client.query_points(
         collection_name=COLLECTION,
-        query_vector=query_embedding,
+        query=query_embedding,
         limit=top_k,
         with_payload=True,
     )
+    return response.points
 
 
 @log_call("qdrant.search_photos_keyword", context_keys=("query",))

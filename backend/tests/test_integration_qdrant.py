@@ -71,6 +71,25 @@ def test_update_caption_override_round_trip():
     assert photo["caption_override"] == "Alex's birthday"
 
 
+def test_search_photos_matches_by_vector_similarity():
+    asyncio.run(vs.init_collection())
+    photo_id = str(uuid.uuid4())
+    embedding = [0.0] * vs.VECTOR_SIZE
+    embedding[0] = 1.0
+    asyncio.run(
+        vs.upsert_photo(
+            photo_id=photo_id,
+            embedding=embedding,
+            filename="cat.jpg",
+            uploaded_at="",
+            file_size=1,
+            caption="a cat on a mat",
+        )
+    )
+    results = asyncio.run(vs.search_photos(embedding, top_k=10))
+    assert any(str(r.id) == photo_id for r in results)
+
+
 def test_search_photos_keyword_matches_caption_text():
     asyncio.run(vs.init_collection())
     photo_id = str(uuid.uuid4())
